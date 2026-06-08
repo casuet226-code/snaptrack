@@ -1,0 +1,3180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>SnapTrack HK</title>
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#E85D4A"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="SnapTrack"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+/* ── Design Tokens ─────────────────────────────────────────────── */
+:root {
+  --red:       #E85D4A;
+  --red-lt:    #FDEAE8;
+  --red-mid:   #F5A49A;
+  --green:     #4FB87A;
+  --green-lt:  #E4F6EC;
+  --blue:      #5BA5D8;
+  --blue-lt:   #E3F0FA;
+  --yellow:    #F7C94A;
+  --yellow-lt: #FEF6DC;
+  --purple:    #9B7FD4;
+  --purple-lt: #EDE8F8;
+  --orange:    #F48C3A;
+  --bg:        #FDF9F2;
+  --card:      #FFFFFF;
+  --text:      #2A2A2A;
+  --text-mid:  #666666;
+  --text-lt:   #AAAAAA;
+  --border:    #F0EDE5;
+  --shadow:    0 4px 20px rgba(0,0,0,0.07);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+  --r:         20px;
+  --r-sm:      12px;
+  --r-xs:      8px;
+  --nav-h:     72px;
+  --font:      'Nunito', system-ui, sans-serif;
+}
+
+/* ── Reset ──────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--font);background:var(--bg);color:var(--text);overscroll-behavior:none;-webkit-font-smoothing:antialiased}
+button{cursor:pointer;border:none;background:none;font-family:var(--font)}
+input,select,textarea{font-family:var(--font)}
+a{text-decoration:none;color:inherit}
+img{max-width:100%}
+
+/* ── App Shell ──────────────────────────────────────────────────── */
+#app{
+  max-width:430px;
+  margin:0 auto;
+  min-height:100dvh;
+  position:relative;
+  overflow:hidden;
+  background:var(--bg);
+}
+
+/* ── Screens ────────────────────────────────────────────────────── */
+.screen{
+  display:none;
+  min-height:calc(100dvh - var(--nav-h));
+  padding-bottom:calc(var(--nav-h) + 16px);
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.screen.active{display:block}
+
+/* ── Bottom Nav ─────────────────────────────────────────────────── */
+#bottom-nav{
+  position:fixed;
+  bottom:0;
+  left:50%;
+  transform:translateX(-50%);
+  width:100%;
+  max-width:430px;
+  height:var(--nav-h);
+  background:var(--card);
+  box-shadow:0 -2px 20px rgba(0,0,0,0.08);
+  display:flex;
+  align-items:center;
+  justify-content:space-around;
+  z-index:200;
+  padding:0 4px;
+  padding-bottom:env(safe-area-inset-bottom,0);
+}
+.nav-btn{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:3px;
+  padding:8px 12px;
+  border-radius:var(--r-sm);
+  transition:all .15s;
+  min-width:52px;
+  color:var(--text-lt);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.3px;
+}
+.nav-btn.active{color:var(--red)}
+.nav-btn svg,.nav-btn .nav-icon{font-size:22px;line-height:1}
+.nav-cam{
+  background:var(--red);
+  color:#fff;
+  border-radius:50%;
+  width:54px;
+  height:54px;
+  font-size:24px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 4px 16px rgba(232,93,74,.4);
+  flex-shrink:0;
+  margin-bottom:8px;
+}
+
+/* ── Typography helpers ─────────────────────────────────────────── */
+.h1{font-size:26px;font-weight:900;line-height:1.2}
+.h2{font-size:20px;font-weight:800}
+.h3{font-size:16px;font-weight:800}
+.label{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-mid)}
+.muted{color:var(--text-lt);font-size:13px}
+
+/* ── Cards ──────────────────────────────────────────────────────── */
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:16px}
+.card-sm{background:var(--card);border-radius:var(--r-sm);box-shadow:var(--shadow-sm);padding:14px}
+
+/* ── Buttons ────────────────────────────────────────────────────── */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:14px 24px;border-radius:50px;font-weight:800;font-size:15px;
+  transition:all .15s;
+}
+.btn-primary{background:var(--red);color:#fff;box-shadow:0 4px 16px rgba(232,93,74,.3)}
+.btn-primary:active{transform:scale(.97);box-shadow:0 2px 8px rgba(232,93,74,.2)}
+.btn-secondary{background:var(--card);color:var(--text);border:2px solid var(--border)}
+.btn-green{background:var(--green);color:#fff;box-shadow:0 4px 16px rgba(79,184,122,.3)}
+.btn-block{width:100%;justify-content:center}
+.btn-sm{padding:8px 16px;font-size:13px}
+.btn-icon{padding:10px;border-radius:50%;background:var(--border)}
+
+/* ── Inputs ─────────────────────────────────────────────────────── */
+.input{
+  width:100%;padding:13px 16px;border:2px solid var(--border);
+  border-radius:var(--r-sm);font-size:15px;font-weight:600;
+  background:var(--card);color:var(--text);outline:none;
+  transition:border-color .15s;
+}
+.input:focus{border-color:var(--red)}
+.input-label{font-size:13px;font-weight:700;color:var(--text-mid);margin-bottom:6px;display:block}
+
+/* ── Tags / Chips ───────────────────────────────────────────────── */
+.chip{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:5px 12px;border-radius:50px;font-size:12px;font-weight:700;
+  background:var(--border);color:var(--text-mid);
+  transition:all .15s;white-space:nowrap;
+}
+.chip.active{background:var(--red);color:#fff}
+
+/* ── Section header ─────────────────────────────────────────────── */
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.sec-hdr h3{font-size:17px;font-weight:800}
+.sec-hdr a,.see-all{color:var(--red);font-size:13px;font-weight:700}
+
+/* ── Toast ──────────────────────────────────────────────────────── */
+#toast{
+  position:fixed;bottom:calc(var(--nav-h) + 12px);left:50%;
+  transform:translateX(-50%) translateY(20px);
+  background:#2A2A2A;color:#fff;padding:10px 20px;
+  border-radius:50px;font-size:14px;font-weight:600;
+  opacity:0;transition:all .3s;pointer-events:none;z-index:999;
+  white-space:nowrap;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── Modal overlay ──────────────────────────────────────────────── */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;
+  display:none;align-items:flex-end;
+}
+.modal-overlay.open{display:flex}
+.modal-sheet{
+  background:var(--card);border-radius:var(--r) var(--r) 0 0;
+  width:100%;max-height:90dvh;overflow-y:auto;padding:20px;
+  animation:slideUp .3s ease;
+}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px}
+
+/* ── Spinner ─────────────────────────────────────────────────────── */
+.spinner{
+  width:40px;height:40px;border:4px solid var(--border);
+  border-top-color:var(--red);border-radius:50%;
+  animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ═══════════════════════════════════════════════════════════════════
+   HOME SCREEN
+═══════════════════════════════════════════════════════════════════ */
+#screen-home{padding:0 16px}
+.home-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:52px 0 16px;
+}
+.home-header h1{font-size:24px;font-weight:900}
+.home-header p{color:var(--text-mid);font-size:14px;font-weight:600;margin-top:2px}
+.avatar-btn{
+  width:44px;height:44px;border-radius:50%;
+  background:var(--yellow-lt);border:2px solid var(--yellow);
+  font-size:22px;display:flex;align-items:center;justify-content:center;
+}
+.hero-card{
+  background:linear-gradient(135deg,#FFF8F7 0%,#FFF3E0 100%);
+  border-radius:var(--r);box-shadow:var(--shadow);
+  padding:20px;margin-bottom:20px;
+  display:flex;align-items:center;gap:12px;
+  overflow:hidden;position:relative;min-height:180px;
+}
+.hero-text{flex:1;z-index:1}
+.hero-title{font-size:28px;font-weight:900;line-height:1.15;color:var(--text)}
+.hero-title span:nth-child(1){color:var(--red)}
+.hero-title span:nth-child(2){color:var(--green)}
+.hero-title span:nth-child(3){color:var(--blue)}
+.hero-sub{font-size:12px;color:var(--text-mid);font-weight:600;margin:8px 0 14px;line-height:1.5}
+.btn-scan{
+  background:var(--red);color:#fff;border-radius:50px;
+  padding:11px 20px;font-size:14px;font-weight:800;
+  box-shadow:0 4px 16px rgba(232,93,74,.3);
+  display:inline-flex;align-items:center;gap:6px;
+}
+.hero-mascot{
+  font-size:80px;line-height:1;flex-shrink:0;
+  filter:drop-shadow(2px 4px 8px rgba(0,0,0,.12));
+}
+.hero-dots{
+  position:absolute;top:0;right:0;width:120px;height:120px;
+  background:radial-gradient(circle,rgba(247,201,74,.2) 0%,transparent 70%);
+}
+
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+.stat-card{
+  background:var(--card);border-radius:var(--r-sm);
+  box-shadow:var(--shadow-sm);padding:12px;
+  display:flex;flex-direction:column;gap:6px;
+}
+.stat-icon{
+  width:36px;height:36px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;font-size:18px;
+}
+.stat-val{font-size:16px;font-weight:900;color:var(--text)}
+.stat-lbl{font-size:10px;font-weight:700;color:var(--text-lt);text-transform:uppercase;letter-spacing:.4px}
+
+.shortcuts-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:12px;margin-bottom:20px;
+}
+.shortcut-btn{
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding:0;background:none;
+}
+.shortcut-icon{
+  width:60px;height:60px;border-radius:18px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;box-shadow:var(--shadow-sm);
+}
+.shortcut-btn span{font-size:11px;font-weight:700;color:var(--text-mid)}
+
+.receipt-row{
+  display:flex;align-items:center;gap:12px;
+  padding:14px;background:var(--card);border-radius:var(--r-sm);
+  box-shadow:var(--shadow-sm);margin-bottom:10px;
+}
+.shop-logo{
+  width:44px;height:44px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:900;color:#fff;flex-shrink:0;
+}
+.receipt-info{flex:1;min-width:0}
+.receipt-shop{font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.receipt-meta{font-size:12px;color:var(--text-lt);font-weight:600;margin-top:2px}
+.receipt-amt{font-size:16px;font-weight:900;color:var(--text);flex-shrink:0}
+.chevron{color:var(--text-lt);font-size:18px}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SCAN SCREEN
+═══════════════════════════════════════════════════════════════════ */
+.screen-header{
+  display:flex;align-items:center;gap:12px;
+  padding:52px 16px 16px;
+}
+.back-btn{
+  width:40px;height:40px;border-radius:50%;background:var(--card);
+  box-shadow:var(--shadow-sm);display:flex;align-items:center;justify-content:center;
+  font-size:18px;flex-shrink:0;
+}
+.screen-title{font-size:20px;font-weight:900}
+
+#screen-scan{padding:0}
+.scan-body{padding:0 16px 16px}
+.upload-zone{
+  border:2.5px dashed var(--red-mid);border-radius:var(--r);
+  background:var(--red-lt);padding:32px 20px;
+  display:flex;flex-direction:column;align-items:center;
+  gap:12px;cursor:pointer;transition:all .2s;margin-bottom:16px;
+  text-align:center;
+}
+.upload-zone:active{background:#fdd5d1;border-color:var(--red)}
+.upload-icon{font-size:56px;line-height:1}
+.upload-zone h3{font-size:18px;font-weight:800;color:var(--red)}
+.upload-zone p{font-size:13px;color:var(--text-mid);font-weight:600}
+.or-divider{
+  display:flex;align-items:center;gap:10px;
+  color:var(--text-lt);font-size:13px;font-weight:600;margin-bottom:16px;
+}
+.or-divider::before,.or-divider::after{
+  content:'';flex:1;height:1px;background:var(--border);
+}
+
+#preview-container{
+  display:none;margin-bottom:16px;
+  border-radius:var(--r);overflow:hidden;
+  box-shadow:var(--shadow);position:relative;
+}
+#preview-img{width:100%;display:block;max-height:50vh;object-fit:contain;background:#f5f5f5}
+.preview-actions{
+  position:absolute;top:10px;right:10px;
+  display:flex;gap:8px;
+}
+.preview-badge{
+  background:rgba(0,0,0,.6);color:#fff;
+  border-radius:50px;padding:4px 10px;font-size:11px;font-weight:700;
+}
+#ocr-progress{
+  display:none;padding:16px;background:var(--card);
+  border-radius:var(--r-sm);box-shadow:var(--shadow-sm);margin-bottom:16px;
+}
+.progress-bar-wrap{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin:10px 0 6px}
+.progress-bar-fill{height:100%;background:var(--red);border-radius:4px;transition:width .3s;width:0%}
+.progress-msg{font-size:12px;color:var(--text-mid);font-weight:600}
+
+/* ═══════════════════════════════════════════════════════════════════
+   REVIEW SCREEN
+═══════════════════════════════════════════════════════════════════ */
+#screen-review{padding:0}
+.review-body{padding:0 16px 16px}
+.review-meta-card{
+  background:var(--card);border-radius:var(--r);
+  box-shadow:var(--shadow);padding:16px;margin-bottom:16px;
+}
+.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.meta-field{display:flex;flex-direction:column;gap:4px}
+.meta-key{font-size:11px;font-weight:700;color:var(--text-lt);text-transform:uppercase;letter-spacing:.5px}
+.meta-val{font-size:15px;font-weight:700}
+.meta-val input{
+  font-size:15px;font-weight:700;border:none;outline:none;
+  background:none;padding:0;width:100%;color:var(--text);
+  font-family:var(--font);
+}
+.items-section-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:10px;
+}
+.item-card{
+  background:var(--card);border-radius:var(--r-sm);
+  box-shadow:var(--shadow-sm);padding:14px;margin-bottom:10px;
+  border-left:4px solid var(--green);
+}
+.item-card.needs-review{border-left-color:var(--yellow)}
+.item-card.discount{border-left-color:var(--blue)}
+.item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.item-name-wrap{flex:1;min-width:0}
+.item-receipt-name{
+  font-size:11px;color:var(--text-lt);font-weight:600;
+  margin-bottom:4px;font-style:italic;
+}
+.item-user-name input{
+  font-size:15px;font-weight:700;border:none;
+  border-bottom:2px solid var(--border);outline:none;
+  background:none;padding:2px 0;width:100%;
+  color:var(--text);font-family:var(--font);
+  transition:border-color .15s;
+}
+.item-user-name input:focus{border-bottom-color:var(--red)}
+.item-price-col{text-align:right;flex-shrink:0}
+.item-price{font-size:16px;font-weight:900}
+.item-orig-price{font-size:12px;color:var(--text-lt);text-decoration:line-through}
+.item-bottom{
+  display:flex;align-items:center;gap:8px;
+  margin-top:10px;flex-wrap:wrap;
+}
+.qty-ctrl{
+  display:flex;align-items:center;gap:8px;
+  background:var(--border);border-radius:50px;padding:4px 8px;
+}
+.qty-btn{
+  width:24px;height:24px;border-radius:50%;
+  background:var(--card);font-size:16px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:var(--shadow-sm);
+}
+.qty-val{font-size:14px;font-weight:800;min-width:20px;text-align:center}
+.discount-tag{
+  background:var(--blue-lt);color:var(--blue);
+  border-radius:50px;padding:3px 10px;font-size:11px;font-weight:700;
+}
+.review-badge{
+  background:var(--yellow-lt);color:var(--orange);
+  border-radius:50px;padding:3px 10px;font-size:11px;font-weight:700;
+}
+.item-del-btn{color:var(--text-lt);font-size:18px;padding:4px;margin-left:auto}
+.add-item-btn{
+  width:100%;padding:12px;border-radius:var(--r-sm);
+  border:2px dashed var(--border);color:var(--text-mid);
+  font-size:14px;font-weight:700;margin-bottom:16px;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.total-bar{
+  background:var(--card);border-radius:var(--r);
+  box-shadow:var(--shadow);padding:16px;margin-bottom:16px;
+}
+.total-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:6px 0;border-bottom:1px solid var(--border);
+  font-size:14px;font-weight:600;
+}
+.total-row:last-child{border:none;padding-top:12px;margin-top:4px}
+.total-row.grand{font-size:18px;font-weight:900}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CALENDAR SCREEN
+═══════════════════════════════════════════════════════════════════ */
+#screen-calendar{padding:0 16px}
+.cal-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:52px 0 16px;
+}
+.cal-nav-btn{
+  width:36px;height:36px;border-radius:50%;
+  background:var(--card);box-shadow:var(--shadow-sm);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;
+}
+.cal-month{font-size:20px;font-weight:900}
+.cal-weekdays{
+  display:grid;grid-template-columns:repeat(7,1fr);
+  gap:2px;margin-bottom:6px;
+}
+.cal-wd{
+  text-align:center;font-size:11px;font-weight:700;
+  color:var(--text-lt);padding:4px 0;
+}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:16px}
+.cal-day{
+  aspect-ratio:1;border-radius:var(--r-xs);
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:2px;cursor:pointer;
+  transition:all .15s;position:relative;
+}
+.cal-day:active{transform:scale(.92)}
+.cal-day.other-month .cal-day-num{color:var(--text-lt)}
+.cal-day.today .cal-day-num{
+  background:var(--red);color:#fff;border-radius:50%;
+  width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+}
+.cal-day.has-spend{background:var(--card);box-shadow:var(--shadow-sm)}
+.cal-day-num{font-size:13px;font-weight:700;line-height:1}
+.cal-day-amt{font-size:8px;font-weight:700;color:var(--red);margin-top:2px;white-space:nowrap}
+.cal-day-dot{width:5px;height:5px;border-radius:50%;background:var(--green);margin-top:2px}
+.cal-summary{
+  background:var(--card);border-radius:var(--r);
+  box-shadow:var(--shadow);padding:16px;
+}
+.cal-sum-title{font-size:16px;font-weight:800;margin-bottom:12px}
+.day-receipts-list{display:flex;flex-direction:column;gap:10px}
+
+/* ═══════════════════════════════════════════════════════════════════
+   RECEIPTS LIST SCREEN
+═══════════════════════════════════════════════════════════════════ */
+#screen-receipts{padding:0 16px}
+.receipts-header{padding:52px 0 16px}
+.search-bar{
+  display:flex;align-items:center;gap:10px;
+  background:var(--card);border-radius:var(--r-sm);
+  box-shadow:var(--shadow-sm);padding:0 14px;
+  margin-bottom:12px;
+}
+.search-bar input{
+  flex:1;border:none;outline:none;padding:13px 0;
+  font-size:15px;font-weight:600;background:none;
+  color:var(--text);font-family:var(--font);
+}
+.search-icon{font-size:18px;color:var(--text-lt)}
+.filter-row{
+  display:flex;gap:8px;overflow-x:auto;
+  scrollbar-width:none;padding-bottom:4px;margin-bottom:16px;
+}
+.filter-row::-webkit-scrollbar{display:none}
+.month-group-hdr{
+  font-size:13px;font-weight:800;color:var(--text-mid);
+  text-transform:uppercase;letter-spacing:.5px;
+  margin:16px 0 8px;
+}
+#receipts-list{padding-bottom:8px}
+
+/* ═══════════════════════════════════════════════════════════════════
+   RECEIPT DETAIL SCREEN
+═══════════════════════════════════════════════════════════════════ */
+#screen-detail{padding:0}
+.detail-hero{
+  background:linear-gradient(135deg,var(--red) 0%,#c94535 100%);
+  padding:52px 20px 24px;color:#fff;
+}
+.detail-shop{font-size:24px;font-weight:900}
+.detail-branch{font-size:14px;opacity:.8;margin-top:4px;font-weight:600}
+.detail-chips{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.detail-chip{
+  background:rgba(255,255,255,.2);color:#fff;
+  border-radius:50px;padding:5px 12px;font-size:12px;font-weight:700;
+}
+.detail-body{padding:0 16px}
+.detail-total-card{
+  background:var(--card);border-radius:var(--r);
+  box-shadow:var(--shadow);padding:16px;
+  margin:-16px 0 16px;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.detail-total-lbl{font-size:13px;font-weight:700;color:var(--text-mid)}
+.detail-total-val{font-size:24px;font-weight:900;color:var(--red)}
+.detail-item-card{
+  background:var(--card);border-radius:var(--r-sm);
+  box-shadow:var(--shadow-sm);padding:14px;margin-bottom:10px;
+}
+.di-name{font-size:15px;font-weight:700}
+.di-receipt-name{font-size:11px;color:var(--text-lt);font-style:italic;margin-top:2px}
+.di-row{
+  display:flex;justify-content:space-between;
+  font-size:13px;color:var(--text-mid);font-weight:600;margin-top:6px;
+}
+.di-discount{color:var(--blue);font-size:12px;font-weight:700;margin-top:4px}
+.di-final{font-size:15px;font-weight:900;color:var(--text);text-align:right;margin-top:4px}
+.detail-actions{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:10px;margin-top:16px;padding-bottom:16px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MANUAL ADD SCREEN
+═══════════════════════════════════════════════════════════════════ */
+#screen-add{padding:0 16px}
+.add-body{padding-top:8px}
+.form-section{margin-bottom:20px}
+.form-section-title{
+  font-size:13px;font-weight:800;color:var(--text-mid);
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;
+}
+.form-row{margin-bottom:12px}
+.pay-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pay-opt{
+  padding:10px 8px;border-radius:var(--r-sm);
+  border:2px solid var(--border);text-align:center;
+  font-size:12px;font-weight:700;transition:all .15s;color:var(--text-mid);
+}
+.pay-opt.selected{border-color:var(--red);background:var(--red-lt);color:var(--red)}
+
+/* ═══════════════════════════════════════════════════════════════════
+   OCR RAW TOGGLE
+═══════════════════════════════════════════════════════════════════ */
+.raw-toggle{
+  font-size:12px;color:var(--blue);font-weight:700;
+  padding:8px 0;display:block;text-align:center;
+}
+.raw-text-box{
+  background:var(--card);border-radius:var(--r-sm);
+  border:1px solid var(--border);padding:12px;
+  font-size:11px;font-family:monospace;color:var(--text-mid);
+  max-height:200px;overflow-y:auto;white-space:pre-wrap;
+  word-break:break-word;margin-bottom:12px;display:none;
+}
+/* ═══════════════════════════════════════════════════════════════════
+   LOADING / SPLASH
+═══════════════════════════════════════════════════════════════════ */
+#screen-loading{
+  position:fixed;inset:0;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:500;gap:16px;
+}
+.splash-logo{font-size:72px;animation:bounce .8s ease-in-out infinite alternate}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-12px)}}
+.splash-title{font-size:28px;font-weight:900;color:var(--text)}
+.splash-sub{font-size:14px;color:var(--text-lt);font-weight:600}
+
+/* ── Utilities ───────────────────────────────────────────────────── */
+.flex{display:flex}.flex-1{flex:1}.gap-8{gap:8px}.gap-12{gap:12px}
+.mt-8{margin-top:8px}.mt-12{margin-top:12px}.mt-16{margin-top:16px}
+.mb-8{margin-bottom:8px}.mb-12{margin-bottom:12px}.mb-16{margin-bottom:16px}
+.text-center{text-align:center}.text-right{text-align:right}
+.hidden{display:none!important}
+.empty-state{
+  text-align:center;padding:40px 20px;color:var(--text-lt);
+}
+.empty-state .es-icon{font-size:56px;margin-bottom:12px}
+.empty-state p{font-size:15px;font-weight:600}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ── Loading ─────────────────────────────────────────────────── -->
+<div id="screen-loading">
+  <div class="splash-logo">📷</div>
+  <div class="splash-title">SnapTrack HK</div>
+  <div class="splash-sub">Loading your receipt diary…</div>
+  <div class="spinner mt-16"></div>
+</div>
+
+<!-- ── HOME ────────────────────────────────────────────────────── -->
+<div id="screen-home" class="screen">
+  <div id="home-content" style="padding:0 16px">
+    <div class="home-header">
+      <div>
+        <h1 class="home-greeting">Hi there! 👋</h1>
+        <p style="color:var(--text-mid);font-size:14px;font-weight:600;margin-top:2px">Let's track &amp; manage your spending!</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="avatar-btn" onclick="App.showApiKey()" title="API Key Settings">⚙️</button>
+        <button class="avatar-btn" onclick="App.navigate('add')">🛍️</button>
+      </div>
+    </div>
+
+    <!-- Hero -->
+    <div class="hero-card" onclick="App.navigate('scan')">
+      <div class="hero-text">
+        <div class="hero-title">
+          <span>SNAP.</span><br>
+          <span>SCAN.</span><br>
+          <span>TRACK!</span>
+        </div>
+        <p class="hero-sub">Take a photo of your receipt and I'll take care of the rest.</p>
+        <button class="btn-scan">📷 Scan Receipt</button>
+      </div>
+      <div class="hero-mascot">🧾</div>
+      <div class="hero-dots"></div>
+    </div>
+
+    <!-- Stats -->
+    <div class="sec-hdr">
+      <h3>This Month</h3>
+      <a class="see-all" onclick="App.navigate('receipts')">See All ›</a>
+    </div>
+    <div class="stats-row" id="home-stats">
+      <div class="stat-card">
+        <div class="stat-icon" style="background:var(--yellow-lt)">💳</div>
+        <div class="stat-lbl">Total Spent</div>
+        <div class="stat-val" id="stat-total">$0.00</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:var(--red-lt)">🧾</div>
+        <div class="stat-lbl">Receipts</div>
+        <div class="stat-val" id="stat-count">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:var(--green-lt)">📊</div>
+        <div class="stat-lbl">Daily Avg</div>
+        <div class="stat-val" id="stat-avg">$0.00</div>
+      </div>
+    </div>
+
+    <!-- Shortcuts -->
+    <div class="shortcuts-grid" style="margin-bottom:20px">
+      <button class="shortcut-btn" onclick="App.navigate('calendar')">
+        <div class="shortcut-icon" style="background:var(--red-lt)">📅</div>
+        <span>Calendar</span>
+      </button>
+      <button class="shortcut-btn" onclick="App.showCategories()">
+        <div class="shortcut-icon" style="background:var(--green-lt)">🏷️</div>
+        <span>Categories</span>
+      </button>
+      <button class="shortcut-btn" onclick="App.showTopShops()">
+        <div class="shortcut-icon" style="background:var(--yellow-lt)">🏪</div>
+        <span>Top Shops</span>
+      </button>
+      <button class="shortcut-btn" onclick="App.navigate('summary')">
+        <div class="shortcut-icon" style="background:var(--blue-lt)">📈</div>
+        <span>Summary</span>
+      </button>
+    </div>
+
+    <!-- Recent Receipts -->
+    <div class="sec-hdr">
+      <h3>🟠 Recent Receipts</h3>
+      <a class="see-all" onclick="App.navigate('receipts')">See All ›</a>
+    </div>
+    <div id="recent-list"></div>
+  </div>
+</div>
+
+<!-- ── SCAN ─────────────────────────────────────────────────────── -->
+<div id="screen-scan" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="App.navigate('home')">←</button>
+    <span class="screen-title">Scan Receipt</span>
+  </div>
+  <div class="scan-body">
+    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+      <div class="upload-icon">📷</div>
+      <h3>Tap to take or upload photo</h3>
+      <p>JPEG, PNG, HEIC — receipt will be auto-processed before scanning</p>
+    </div>
+    <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none"/>
+
+    <div class="or-divider">or</div>
+    <button class="btn btn-secondary btn-block" onclick="document.getElementById('file-input-gallery').click()">
+      🖼️ Choose from Gallery
+    </button>
+    <input type="file" id="file-input-gallery" accept="image/*" style="display:none"/>
+
+    <div id="preview-container" style="margin-top:16px">
+      <img id="preview-img" alt="Receipt preview"/>
+      <div class="preview-actions">
+        <span class="preview-badge" id="preview-label">Original</span>
+      </div>
+    </div>
+
+    <div id="ocr-progress">
+      <div style="font-size:14px;font-weight:700" id="ocr-status">Processing image…</div>
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill"></div></div>
+      <div class="progress-msg" id="ocr-msg">Preparing…</div>
+    </div>
+
+    <div id="scan-actions" style="display:none;margin-top:12px">
+      <button class="btn btn-primary btn-block" id="btn-extract" onclick="App.startOCR()">
+        🔍 Extract Receipt Data
+      </button>
+      <button class="btn btn-secondary btn-block mt-8" onclick="App.resetScan()">
+        ↩ Choose Different Photo
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── REVIEW ───────────────────────────────────────────────────── -->
+<div id="screen-review" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="App.navigate('scan')">←</button>
+    <span class="screen-title">Review Receipt</span>
+    <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="App.saveReceipt()">Save</button>
+  </div>
+  <div class="review-body">
+    <div class="review-meta-card">
+      <div class="meta-grid">
+        <div class="meta-field">
+          <span class="meta-key">Shop</span>
+          <div class="meta-val"><input id="rv-shop" type="text" placeholder="Shop name"/></div>
+        </div>
+        <div class="meta-field">
+          <span class="meta-key">Branch</span>
+          <div class="meta-val"><input id="rv-branch" type="text" placeholder="Branch / address"/></div>
+        </div>
+        <div class="meta-field">
+          <span class="meta-key">Date</span>
+          <div class="meta-val"><input id="rv-date" type="date"/></div>
+        </div>
+        <div class="meta-field">
+          <span class="meta-key">Time</span>
+          <div class="meta-val"><input id="rv-time" type="time"/></div>
+        </div>
+        <div class="meta-field">
+          <span class="meta-key">Card Last 4</span>
+          <div class="meta-val"><input id="rv-card4" type="text" maxlength="4" placeholder="0000"/></div>
+        </div>
+      </div>
+      <!-- Payment method buttons -->
+      <div style="margin-top:12px">
+        <span class="meta-key">Payment Method</span>
+        <div id="rv-pay-grid" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+          <button class="pay-opt rv-pay-btn" data-pay="Cash"       onclick="App.selectRvPay(this)">💵 Cash</button>
+          <button class="pay-opt rv-pay-btn" data-pay="Octopus"    onclick="App.selectRvPay(this)">🟡 Octopus</button>
+          <button class="pay-opt rv-pay-btn" data-pay="VISA"       onclick="App.selectRvPay(this)">💳 VISA</button>
+          <button class="pay-opt rv-pay-btn" data-pay="MasterCard" onclick="App.selectRvPay(this)">💳 Master</button>
+          <button class="pay-opt rv-pay-btn" data-pay="AlipayHK"   onclick="App.selectRvPay(this)">📱 Alipay</button>
+          <button class="pay-opt rv-pay-btn" data-pay="WeChat Pay" onclick="App.selectRvPay(this)">💚 WeChat</button>
+          <button class="pay-opt rv-pay-btn" data-pay="EPS"        onclick="App.selectRvPay(this)">🏧 EPS</button>
+          <button class="pay-opt rv-pay-btn" data-pay="PayMe"      onclick="App.selectRvPay(this)">💜 PayMe</button>
+          <button class="pay-opt rv-pay-btn" data-pay="FPS"        onclick="App.selectRvPay(this)">⚡ FPS</button>
+        </div>
+        <input id="rv-payment" class="input" type="text" placeholder="Other / type manually…"
+          style="margin-top:8px;padding:10px 12px;font-size:13px"/>
+      </div>
+      <!-- Category -->
+      <div style="margin-top:12px">
+        <span class="meta-key">Category</span>
+        <div id="rv-cat-grid" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
+      </div>
+    </div>
+
+    <div class="items-section-hdr">
+      <span style="font-size:17px;font-weight:800">Items</span>
+      <button class="chip" onclick="App.toggleRaw()" id="raw-toggle-btn">👁 Raw OCR</button>
+    </div>
+
+    <div id="raw-text-box" class="raw-text-box"></div>
+    <div id="items-list"></div>
+
+    <button class="add-item-btn" onclick="App.addBlankItem()">+ Add Item</button>
+
+    <div class="total-bar">
+      <div class="total-row">
+        <span>Subtotal</span>
+        <span id="rv-subtotal">$0.00</span>
+      </div>
+      <div class="total-row">
+        <span>Discounts</span>
+        <span id="rv-discounts" style="color:var(--green)">-$0.00</span>
+      </div>
+      <div class="total-row grand">
+        <span>Total</span>
+        <span id="rv-total-display" style="color:var(--red)">$0.00</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:16px">
+      <div style="flex:1">
+        <label class="input-label">Total Amount</label>
+        <input class="input" id="rv-total-input" type="number" step="0.1" placeholder="0.00"/>
+      </div>
+      <div style="flex:1">
+        <label class="input-label">Amount Paid</label>
+        <input class="input" id="rv-paid" type="number" step="0.1" placeholder="0.00"/>
+      </div>
+    </div>
+
+    <button class="btn btn-green btn-block" onclick="App.saveReceipt()" style="margin-bottom:12px">
+      ✅ Save Receipt
+    </button>
+    <button class="btn btn-secondary btn-block" onclick="App.discardReview()">
+      🗑 Discard
+    </button>
+  </div>
+</div>
+
+<!-- ── CALENDAR ─────────────────────────────────────────────────── -->
+<div id="screen-calendar" class="screen">
+  <div style="padding:0 16px">
+    <div class="cal-header">
+      <button class="cal-nav-btn" onclick="App.calNav(-1)">‹</button>
+      <span class="cal-month" id="cal-month-label">June 2024</span>
+      <button class="cal-nav-btn" onclick="App.calNav(1)">›</button>
+    </div>
+    <div class="cal-weekdays">
+      <div class="cal-wd">S</div><div class="cal-wd">M</div><div class="cal-wd">T</div>
+      <div class="cal-wd">W</div><div class="cal-wd">T</div><div class="cal-wd">F</div>
+      <div class="cal-wd">S</div>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+
+    <div class="cal-summary">
+      <div class="cal-sum-title" id="cal-sum-title">Select a day</div>
+      <div id="cal-day-content">
+        <div class="empty-state"><div class="es-icon">📅</div><p>Tap a day to see receipts</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── RECEIPTS LIST ─────────────────────────────────────────────── -->
+<div id="screen-receipts" class="screen">
+  <div style="padding:0 16px">
+    <div class="receipts-header">
+      <h1 style="font-size:24px;font-weight:900">My Receipts</h1>
+    </div>
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search-input" placeholder="Search shop, item…" oninput="App.filterReceipts()"/>
+    </div>
+    <div class="filter-row" id="filter-chips">
+      <button class="chip active" data-filter="all" onclick="App.setFilter('all',this)">All</button>
+      <button class="chip" data-filter="VISA" onclick="App.setFilter('VISA',this)">VISA</button>
+      <button class="chip" data-filter="MasterCard" onclick="App.setFilter('MasterCard',this)">Mastercard</button>
+      <button class="chip" data-filter="Octopus" onclick="App.setFilter('Octopus',this)">Octopus</button>
+      <button class="chip" data-filter="Cash" onclick="App.setFilter('Cash',this)">Cash</button>
+      <button class="chip" data-filter="AlipayHK" onclick="App.setFilter('AlipayHK',this)">AlipayHK</button>
+      <button class="chip" data-filter="WeChat Pay" onclick="App.setFilter('WeChat Pay',this)">WeChat</button>
+      <button class="chip" data-filter="EPS" onclick="App.setFilter('EPS',this)">EPS</button>
+    </div>
+    <div class="filter-row" id="cat-chips" style="margin-bottom:16px"></div>
+    <div id="receipts-list"></div>
+  </div>
+</div>
+
+<!-- ── RECEIPT DETAIL ────────────────────────────────────────────── -->
+<div id="screen-detail" class="screen">
+  <div class="detail-hero">
+    <button class="back-btn" style="background:rgba(255,255,255,.2);color:#fff;margin-bottom:12px" onclick="App.back()">←</button>
+    <div class="detail-shop" id="det-shop">Shop Name</div>
+    <div class="detail-branch" id="det-branch"></div>
+    <div class="detail-chips" id="det-chips"></div>
+  </div>
+  <div class="detail-body">
+    <div class="detail-total-card">
+      <div>
+        <div class="detail-total-lbl">Total Spent</div>
+        <div class="detail-total-val" id="det-total">$0.00</div>
+      </div>
+      <div style="text-align:right">
+        <div class="detail-total-lbl" id="det-date"></div>
+        <div style="font-size:13px;font-weight:700;color:var(--text-mid)" id="det-payment"></div>
+      </div>
+    </div>
+
+    <!-- Receipt photo (shown only if saved) -->
+    <div id="det-photo-wrap" style="display:none;margin-bottom:16px">
+      <button onclick="App.toggleDetPhoto()" style="width:100%;display:flex;align-items:center;justify-content:between;
+        background:var(--card);border-radius:var(--r-sm);box-shadow:var(--shadow-sm);
+        padding:12px 14px;font-size:14px;font-weight:700;gap:8px">
+        📷 <span>View Receipt Photo</span>
+        <span id="det-photo-chevron" style="margin-left:auto;color:var(--text-lt)">›</span>
+      </button>
+      <div id="det-photo-box" style="display:none;margin-top:8px;border-radius:var(--r-sm);overflow:hidden;box-shadow:var(--shadow-sm)">
+        <img id="det-photo-img" style="width:100%;display:block;object-fit:contain;background:#f5f5f5;max-height:60vh"/>
+      </div>
+    </div>
+
+    <div class="sec-hdr">
+      <h3>Items</h3>
+      <button class="chip" id="det-edit-btn" onclick="App.editReceipt()">✏️ Edit</button>
+    </div>
+    <div id="det-items-list"></div>
+
+    <div class="detail-actions">
+      <button class="btn btn-secondary btn-block" onclick="App.editReceipt()">✏️ Edit Receipt</button>
+      <button class="btn btn-secondary btn-block" onclick="App.deleteReceipt()" style="color:var(--red)">🗑 Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MANUAL ADD ────────────────────────────────────────────────── -->
+<div id="screen-add" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="App.back()">←</button>
+    <span class="screen-title">Add Expense</span>
+  </div>
+  <div style="padding:0 16px" class="add-body">
+    <div class="form-section">
+      <div class="form-section-title">Shop Info</div>
+      <div class="form-row">
+        <label class="input-label">Shop Name *</label>
+        <input class="input" id="add-shop" type="text" placeholder="7-Eleven, Mannings…"/>
+      </div>
+      <div class="form-row">
+        <label class="input-label">Branch / Address</label>
+        <input class="input" id="add-branch" type="text" placeholder="e.g. Mong Kok Branch"/>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">Date &amp; Time</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label class="input-label">Date *</label><input class="input" id="add-date" type="date"/></div>
+        <div><label class="input-label">Time</label><input class="input" id="add-time" type="time"/></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">Payment</div>
+      <div class="pay-grid" id="pay-grid">
+        <button class="pay-opt" data-pay="Cash" onclick="App.selectPay(this)">💵 Cash</button>
+        <button class="pay-opt" data-pay="Octopus" onclick="App.selectPay(this)">🟡 Octopus</button>
+        <button class="pay-opt" data-pay="VISA" onclick="App.selectPay(this)">💳 VISA</button>
+        <button class="pay-opt" data-pay="MasterCard" onclick="App.selectPay(this)">💳 Master</button>
+        <button class="pay-opt" data-pay="AlipayHK" onclick="App.selectPay(this)">📱 Alipay</button>
+        <button class="pay-opt" data-pay="WeChat Pay" onclick="App.selectPay(this)">💚 WeChat</button>
+        <button class="pay-opt" data-pay="EPS" onclick="App.selectPay(this)">🏧 EPS</button>
+        <button class="pay-opt" data-pay="PayMe" onclick="App.selectPay(this)">💜 PayMe</button>
+        <button class="pay-opt" data-pay="FPS" onclick="App.selectPay(this)">⚡ FPS</button>
+      </div>
+      <div class="form-row mt-8">
+        <label class="input-label">Card Last 4 (optional)</label>
+        <input class="input" id="add-card4" type="text" maxlength="4" placeholder="0000"/>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title" style="display:flex;justify-content:space-between">
+        Items
+        <button class="chip" onclick="App.addManualItem()" style="font-size:12px">+ Add Item</button>
+      </div>
+      <div id="manual-items"></div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">Category</div>
+      <div id="add-cat-grid" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">Total</div>
+      <input class="input" id="add-total" type="number" step="0.1" placeholder="0.00"/>
+    </div>
+
+    <button class="btn btn-primary btn-block" onclick="App.saveManual()" style="margin-bottom:8px">
+      ✅ Save Expense
+    </button>
+    <button class="btn btn-secondary btn-block" onclick="App.back()" style="margin-bottom:16px">
+      Cancel
+    </button>
+  </div>
+</div>
+
+<!-- ── SUMMARY SCREEN ────────────────────────────────────────────── -->
+<div id="screen-summary" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="App.back()">←</button>
+    <span class="screen-title">Spending Summary</span>
+  </div>
+  <div style="padding:0 16px" id="summary-body"></div>
+</div>
+
+<!-- ── BOTTOM NAV ────────────────────────────────────────────────── -->
+<nav id="bottom-nav">
+  <button class="nav-btn active" id="nav-home" onclick="App.navigate('home')">
+    <span class="nav-icon">🏠</span><span>Home</span>
+  </button>
+  <button class="nav-btn" id="nav-receipts" onclick="App.navigate('receipts')">
+    <span class="nav-icon">🧾</span><span>Receipts</span>
+  </button>
+  <button class="nav-cam" onclick="App.navigate('scan')">📷</button>
+  <button class="nav-btn" id="nav-calendar" onclick="App.navigate('calendar')">
+    <span class="nav-icon">📅</span><span>Calendar</span>
+  </button>
+  <button class="nav-btn" id="nav-add" onclick="App.navigate('add')">
+    <span class="nav-icon">➕</span><span>Add</span>
+  </button>
+</nav>
+
+<!-- ── MODALS ────────────────────────────────────────────────────── -->
+<!-- ── EDIT CATEGORY MODAL (from detail screen) ─────────────────── -->
+<div class="modal-overlay" id="modal-editcat">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h3 style="font-size:18px;font-weight:900;margin-bottom:14px">🏷️ Change Category</h3>
+    <div id="editcat-grid" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px"></div>
+    <button class="btn btn-secondary btn-block" onclick="App.closeModal('modal-editcat')">Cancel</button>
+  </div>
+</div>
+
+<!-- ── CUSTOM CATEGORY MODAL ─────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-addcat">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h3 style="font-size:18px;font-weight:900;margin-bottom:16px">➕ New Category</h3>
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <div style="flex:0 0 72px">
+        <label class="input-label">Icon</label>
+        <input class="input" id="newcat-icon" type="text" maxlength="2" placeholder="😀"
+          style="text-align:center;font-size:22px;padding:10px 8px"/>
+      </div>
+      <div style="flex:1">
+        <label class="input-label">Name</label>
+        <input class="input" id="newcat-name" type="text" placeholder="e.g. Pets, Education…"/>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="App.saveCustomCat()" style="margin-bottom:8px">✅ Add Category</button>
+    <button class="btn btn-secondary btn-block" onclick="App.closeModal('modal-addcat')">Cancel</button>
+  </div>
+</div>
+
+<!-- ── API KEY MODAL ──────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-apikey">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h3 style="font-size:18px;font-weight:900;margin-bottom:6px">🔑 Google Gemini API Key</h3>
+    <p style="font-size:13px;color:var(--text-mid);font-weight:600;margin-bottom:16px;line-height:1.5">
+      Needed for instant receipt scanning. Get yours free at
+      <strong>aistudio.google.com/apikey</strong>.
+    </p>
+    <label class="input-label">Paste your API key</label>
+    <input class="input" id="apikey-input" type="password"
+      placeholder="AIza…" style="margin-bottom:16px;letter-spacing:.05em"/>
+    <button class="btn btn-primary btn-block" onclick="App.saveApiKey()" style="margin-bottom:8px">
+      ✅ Save & Continue
+    </button>
+    <button class="btn btn-secondary btn-block" onclick="App.closeModal('modal-apikey')">
+      Cancel
+    </button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-shops">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h3 style="font-size:18px;font-weight:900;margin-bottom:16px">🏪 Top Shops</h3>
+    <div id="top-shops-list"></div>
+    <button class="btn btn-secondary btn-block mt-12" onclick="App.closeModal('modal-shops')">Close</button>
+  </div>
+</div>
+<div class="modal-overlay" id="modal-categories">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h3 style="font-size:18px;font-weight:900;margin-bottom:16px">🏷️ Categories</h3>
+    <div id="categories-list"></div>
+    <button class="btn btn-secondary btn-block mt-12" onclick="App.closeModal('modal-categories')">Close</button>
+  </div>
+</div>
+
+<!-- ── TOAST ─────────────────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<!-- Tesseract removed — OCR is now handled by Claude Vision API -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   SNAPTRACK HK — Main Application Script
+   Architecture: vanilla JS, IndexedDB, Tesseract.js, Canvas OCR prep
+═══════════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════════
+   CATEGORIES
+═══════════════════════════════════════════════════════════════════ */
+const CATEGORIES = [
+  { id:'food',          label:'Food & Dining',   icon:'🍔' },
+  { id:'transport',     label:'Transportation',  icon:'🚇' },
+  { id:'housing',       label:'Housing',         icon:'🏠' },
+  { id:'shopping',      label:'Shopping',        icon:'🛍️' },
+  { id:'personalcare',  label:'Personal Care',   icon:'❤️' },
+  { id:'healthcare',    label:'Healthcare',      icon:'🏥' },
+  { id:'entertainment', label:'Entertainment',   icon:'🎮' },
+  { id:'travel',        label:'Travel',          icon:'✈️' },
+  { id:'subscriptions', label:'Subscriptions',   icon:'📱' },
+  { id:'other',         label:'Other',           icon:'💰' },
+];
+
+function autoCategory(shopName){
+  const s = (shopName||'').toLowerCase();
+  if(/mtr|bus|taxi|uber|ferry|octopus|kcr|light\s*rail|airport\s*express/.test(s)) return 'transport';
+  if(/hotel|hostel|airbnb|airline|cathay|hkexpress|dragonair|klook|travel/.test(s)) return 'travel';
+  if(/netflix|spotify|apple|google\s*play|youtube|amazon|disney|hbo|chatgpt|openai|subscription/.test(s)) return 'subscriptions';
+  if(/cinema|amc|broadway|broadway\s*circuit|golden\s*harvest|imax|game|steam|playstation|nintendo|sport|fitness|gym|swimming/.test(s)) return 'entertainment';
+  if(/clinic|hospital|doctor|dental|optician|pharmacy|mannings|watsons|watson|guardian|health/.test(s)) return 'healthcare';
+  if(/salon|spa|beauty|hair|nail|barber|cosmetic|sasa|bonjour/.test(s)) return 'personalcare';
+  if(/parknshop|park n shop|wellcome|惠康|百佳|jason|great|jasons|city\s*super|citysuper|aeon|donki|don\s*don|ikea|sogo|cooked\s*deli|supermarket/.test(s)) return 'shopping';
+  if(/7-eleven|711|circle\s*k|vango|ok\s*convenience|mcdonald|kfc|starbucks|café|cafe|restaurant|茶餐廳|cha\s*chaan|bistro|bakery|pret|subway|pizza|sushi|dim\s*sum|hotpot|uny|wellcome\s*fresh/.test(s)) return 'food';
+  if(/rent|utility|utilities|electricity|gas|water|rate|broadband|wifi|csl|smartone|hkt|three\s*hk|1010/.test(s)) return 'housing';
+  return 'other';
+}
+
+/* Custom categories — persisted in localStorage */
+const CustomCats = {
+  _key: 'snaptrack_custom_cats',
+  load(){ try{ return JSON.parse(localStorage.getItem(this._key)||'[]'); }catch(e){return[];} },
+  save(arr){ localStorage.setItem(this._key, JSON.stringify(arr)); },
+  add(icon, label){
+    const id = 'custom_' + Date.now();
+    const arr = this.load();
+    arr.push({id, icon, label, custom:true});
+    this.save(arr);
+    return id;
+  },
+  all(){ return this.load(); },
+};
+
+function allCategories(){ return [...CATEGORIES, ...CustomCats.all()]; }
+function catById(id){ return allCategories().find(c=>c.id===id) || CATEGORIES[CATEGORIES.length-1]; }
+
+/* ── Utilities ──────────────────────────────────────────────────── */
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7) }
+function fmtMoney(n){ return '$' + (+n||0).toFixed(2) }
+function fmtDate(iso){
+  if(!iso) return '';
+  const d = new Date(iso+'T00:00:00');
+  return d.toLocaleDateString('en-HK',{day:'2-digit',month:'short',year:'numeric'});
+}
+function today(){ return new Date().toISOString().slice(0,10) }
+function nowTime(){ return new Date().toTimeString().slice(0,5) }
+function shopColor(name){
+  const colors=['#E85D4A','#4FB87A','#5BA5D8','#F7C94A','#9B7FD4','#F48C3A','#E85D8A','#3AB8B8'];
+  let h=0; for(let c of name||'?') h=(h*31+c.charCodeAt(0))&0xFFFFFF;
+  return colors[h%colors.length];
+}
+function shopInitial(name){ return (name||'?')[0].toUpperCase() }
+function toast(msg,dur=2500){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),dur);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DATABASE — IndexedDB
+═══════════════════════════════════════════════════════════════════ */
+const DB = (() => {
+  let db;
+  const DB_NAME = 'snaptrack-hk';
+  const DB_VER  = 2;
+
+  function open(){
+    return new Promise((res,rej)=>{
+      const req = indexedDB.open(DB_NAME, DB_VER);
+      req.onupgradeneeded = e => {
+        const d = e.target.result;
+        if(!d.objectStoreNames.contains('receipts'))
+          d.createObjectStore('receipts',{keyPath:'id'});
+        if(!d.objectStoreNames.contains('mappings'))
+          d.createObjectStore('mappings',{keyPath:'key'});
+      };
+      req.onsuccess = e => { db=e.target.result; res(db); };
+      req.onerror  = e => rej(e.target.error);
+    });
+  }
+
+  function tx(store,mode='readonly'){
+    return db.transaction(store,mode).objectStore(store);
+  }
+
+  function all(store){
+    return new Promise((res,rej)=>{
+      const req=tx(store).getAll();
+      req.onsuccess=e=>res(e.target.result);
+      req.onerror=e=>rej(e.target.error);
+    });
+  }
+
+  function put(store,obj){
+    return new Promise((res,rej)=>{
+      const req=tx(store,'readwrite').put(obj);
+      req.onsuccess=e=>res(e.target.result);
+      req.onerror=e=>rej(e.target.error);
+    });
+  }
+
+  function del(store,key){
+    return new Promise((res,rej)=>{
+      const req=tx(store,'readwrite').delete(key);
+      req.onsuccess=e=>res(e.target.result);
+      req.onerror=e=>rej(e.target.error);
+    });
+  }
+
+  return {open, all, put, del};
+})();
+
+/* ═══════════════════════════════════════════════════════════════════
+   IMAGE PREPROCESSING
+═══════════════════════════════════════════════════════════════════ */
+const ImageProc = (() => {
+
+  async function process(file){
+    return new Promise((resolve)=>{
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        try { resolve(_processImg(img)); }
+        catch(e){ resolve(url); }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+      img.src = url;
+    });
+  }
+
+  function _processImg(img){
+    // Target: at least 1800px on the long side for reliable OCR
+    const TARGET_LONG = 1800;
+    const longSide = Math.max(img.width, img.height);
+    const scale = longSide < TARGET_LONG ? TARGET_LONG / longSide : 1.0;
+    const W = Math.round(img.width  * scale);
+    const H = Math.round(img.height * scale);
+
+    const c   = document.createElement('canvas');
+    c.width=W; c.height=H;
+    const ctx = c.getContext('2d');
+    // White background before drawing (handles transparent PNGs)
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0,0,W,H);
+    ctx.drawImage(img, 0, 0, W, H);
+
+    // Convert to grayscale + gentle contrast boost
+    const id   = ctx.getImageData(0,0,W,H);
+    const data = id.data;
+    // Contrast factor: moderate — too high destroys thin text
+    const contrast = 45;
+    const factor = (259*(contrast+255))/(255*(259-contrast));
+
+    for(let i=0;i<data.length;i+=4){
+      const gray = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+      const adj  = Math.min(255, Math.max(0, factor*(gray-128)+128));
+      data[i]=data[i+1]=data[i+2]=adj;
+      // alpha stays at data[i+3]
+    }
+    ctx.putImageData(id,0,0);
+
+    // Safe auto-crop: only crop if we find a clear content bounding box
+    // and it covers at least 40% of the image (avoids over-cropping)
+    const cropped = _safeCrop(c, ctx, W, H);
+    return cropped.toDataURL('image/jpeg', 0.95);
+  }
+
+  function _safeCrop(canvas, ctx, W, H){
+    // Sample every 4th pixel for speed
+    const id   = ctx.getImageData(0,0,W,H);
+    const data = id.data;
+    const THR  = 235; // slightly below pure white
+    let minX=W,maxX=0,minY=H,maxY=0;
+    const STEP=4;
+
+    for(let y=0;y<H;y+=STEP) for(let x=0;x<W;x+=STEP){
+      const i=(y*W+x)*4;
+      if(data[i]<THR){
+        if(x<minX)minX=x; if(x>maxX)maxX=x;
+        if(y<minY)minY=y; if(y>maxY)maxY=y;
+      }
+    }
+
+    // Bail out if crop region would be too small (< 25% of area)
+    if(maxX<=minX||maxY<=minY) return canvas;
+    const cw=maxX-minX, ch=maxY-minY;
+    if(cw*ch < W*H*0.25) return canvas;   // crop too small → skip
+
+    const PAD=Math.round(Math.min(W,H)*0.02); // 2% padding
+    const cx=Math.max(0,minX-PAD), cy=Math.max(0,minY-PAD);
+    const fw=Math.min(W,maxX+PAD)-cx, fh=Math.min(H,maxY+PAD)-cy;
+    if(fw<100||fh<100) return canvas;
+
+    const c2=document.createElement('canvas');
+    c2.width=fw; c2.height=fh;
+    c2.getContext('2d').drawImage(canvas,cx,cy,fw,fh,0,0,fw,fh);
+    return c2;
+  }
+
+  return {process};
+})();
+
+/* ═══════════════════════════════════════════════════════════════════
+   HK RECEIPT PARSER  (simple & fast)
+═══════════════════════════════════════════════════════════════════ */
+const Parser = (() => {
+
+  /* ── Patterns ── */
+  const PRICE_RE   = /(-?\s*\$?\s*\d{1,5}\.\d{2})\s*$/;
+  const BARCODE_RE = /^\d{6,}$/;
+
+  // Grand total = end of item section.  (?!\s*[a-zA-Z]) stops "Total Body Care" matching.
+  const TOTAL_STOP_RE = /^(?:Total|Grand\s*Total|合計|總計|應付(?:金額)?|Amount\s*Due|實收|Net\s*Total|小計|Subtotal|\d+\s*種目)(?!\s*[a-zA-Z])/i;
+
+  // Lines to always skip (payment tenders, transaction metadata, noise)
+  const SKIP_RE = /^(?:MASTERCARD|MASTER\s*CARD|VISA|AMEX|UNIONPAY|EPS|OCTOPUS|ALIPAYHK|ALIPAY|WECHAT|PAYME|FPS|CASH|現金|八達通|易辦事|微信|轉數快)(?!\s*[a-zA-Z])/i
+    .source + '|' + /(?:TID|MID|Batch\s*(?:No)?|Trace\s*(?:No)?|Approval\s*(?:Code)?|RRN|AID\b|TVR\b|ATC\b|TSI\b|TC\b|Trans\s*Type|Txn\s*ID|Loc\s*ID|STAN\b|PPTDate|ARQC)\s*[:\s#]/i
+    .source + '|' + /^(?:Change\s*Amt|找|No\.?\s*of\s*Stamp|NUMBER\s*OF\s*STAMP|Thank\s*you|Please\s+(?:retain|keep)|www\.|http|I\s+AGREE|NO\s+SIGNATURE)/i.source;
+  const SKIP_CRE = new RegExp(SKIP_RE, 'i');
+
+  // Discount keywords (line is a discount, not a product)
+  const DISCOUNT_RE = /(?:Discount|Coupon|Cashier\s*Redemption|Redemption|Special\s*Price|Member\s*(?:Discount|Saving)|Saving\b|\d+\s*Or\s*More|Promo\b|優惠|折扣|減價|買.*送)/i;
+
+  const DATE_PATTERNS = [
+    { re:/(\d{2})[\/\-](\d{2})[\/\-](\d{4})/, fn:m=>`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` },
+    { re:/(\d{4})[\/\-](\d{2})[\/\-](\d{2})/, fn:m=>`${m[1]}-${m[2]}-${m[3]}` },
+    { re:/(\d{2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{4})/i,
+      fn:m=>{ const mo={jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
+              return `${m[3]}-${mo[m[2].toLowerCase().slice(0,3)]}-${m[1].padStart(2,'0')}`; } },
+    { re:/\b(\d{2})[\/\-](\d{2})[\/\-](\d{2})\b/, fn:m=>`${2000+parseInt(m[3])}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` },
+  ];
+  const TIME_RE  = /\b(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?\b/;
+  const CARD4_RE = /[*•x]{3,}[-\s]?(\d{4})/i;
+  const PAYMENT_MAP = {
+    'MASTERCARD':'MasterCard','MASTER CARD':'MasterCard','VISA':'VISA',
+    'AMEX':'AMEX','AMERICAN EXPRESS':'AMEX','UNIONPAY':'UnionPay',
+    'EPS':'EPS','易辦事':'EPS','OCTOPUS':'Octopus','八達通':'Octopus',
+    'ALIPAYHK':'AlipayHK','ALIPAY HK':'AlipayHK','ALIPAY':'AlipayHK',
+    'WECHAT PAY':'WeChat Pay','WECHATPAY':'WeChat Pay','微信':'WeChat Pay',
+    'PAYME':'PayMe','FPS':'FPS','轉數快':'FPS','CASH':'Cash','現金':'Cash',
+  };
+  const ADDR_RE = /\b(road|rd\b|street|st\b|avenue|ave\b|floor|fl\b|b\/f|g\/f|basement|kowloon|hong\s*kong|\bHK\b|\bNT\b|yuen\s*long|mong\s*kok|causeway|wan\s*chai|central|kwun\s*tong|sha\s*tin|tuen\s*mun|tsuen\s*wan)\b/i;
+
+  /* ── Main parse function ── */
+  function parse(rawText){
+    const allLines = rawText.split('\n').map(l=>l.replace(/\r/g,'').trimEnd()).filter(Boolean);
+
+    const r = {
+      id: uid(),
+      shop_name:'', branch:'', date:'', time:'',
+      total_amount:0, payment_method:'', payment_amount:0, card_last4:'',
+      raw_ocr_text: rawText,
+      items:[],
+    };
+
+    /* Payment method & card */
+    const upper = rawText.toUpperCase();
+    for(const [kw, method] of Object.entries(PAYMENT_MAP)){
+      if(upper.includes(kw)){ r.payment_method = method; break; }
+    }
+    const c4 = rawText.match(CARD4_RE);
+    if(c4) r.card_last4 = c4[1];
+
+    /* Date & time */
+    for(const line of allLines){
+      if(!r.date) for(const dp of DATE_PATTERNS){ const m=line.match(dp.re); if(m){r.date=dp.fn(m);break;} }
+      if(!r.time){ const tm=line.match(TIME_RE); if(tm) r.time=tm[0].trim(); }
+    }
+
+    /* Find total lines:
+       - firstStopIdx = earliest subtotal/total line → items end here
+       - grandIdx     = grand total line (Total/總計/合計/應付) → real amount
+       If receipt only has a grand total (no separate subtotal), both = same line. */
+    const GRAND_RE = /^(?:Total|Grand\s*Total|合計|總計|應付(?:金額)?|Amount\s*Due|實收|Net\s*Total)(?!\s*[a-zA-Z])/i;
+    let firstStopIdx = -1, grandIdx = -1;
+    for(let i = 0; i < allLines.length; i++){
+      const l = allLines[i].trim();
+      if(TOTAL_STOP_RE.test(l)){
+        if(firstStopIdx < 0) firstStopIdx = i;
+        if(GRAND_RE.test(l)){
+          grandIdx = i;
+          const pm = allLines[i].match(PRICE_RE);
+          if(pm) r.total_amount = parseFloat(pm[1].replace(/[\s$]/g,''));
+          break; // grand total found — stop scanning
+        }
+      }
+    }
+    // Fallback: use firstStop amount if no grand total found
+    if(grandIdx < 0 && firstStopIdx >= 0){
+      grandIdx = firstStopIdx;
+      const pm = allLines[firstStopIdx].match(PRICE_RE);
+      if(pm) r.total_amount = parseFloat(pm[1].replace(/[\s$]/g,''));
+    }
+    const itemEnd = firstStopIdx >= 0 ? firstStopIdx : allLines.length;
+    if(!r.payment_amount) r.payment_amount = r.total_amount;
+
+    /* Shop name: first 1-2 non-noise header lines */
+    let hFound = 0;
+    for(let i = 0; i < Math.min(8, allLines.length); i++){
+      const l = allLines[i].trim();
+      if(!l || l.length < 2) continue;
+      if(BARCODE_RE.test(l) || PRICE_RE.test(l) || ADDR_RE.test(l)) continue;
+      if(DATE_PATTERNS.some(dp=>dp.re.test(l))) continue;
+      if(SKIP_CRE.test(l)) continue;
+      if(/^\d/.test(l) && /[,\/]/.test(l)) continue;
+      if(hFound === 0){ r.shop_name = l; hFound++; }
+      else { r.branch = l; break; }
+    }
+    if(!r.branch){
+      for(let i=1;i<Math.min(6,allLines.length);i++){
+        const l=allLines[i].trim();
+        if(ADDR_RE.test(l)||(l.includes(',')&&/[A-Z]/.test(l)&&l.length>10)){r.branch=l;break;}
+      }
+    }
+
+    /* ── ITEM EXTRACTION ────────────────────────────────────────────
+       Simple rules:
+         1. Stop when we hit a Total / 合計 / 總計 / 應付 line
+         2. Skip payment tenders, transaction metadata, barcodes
+         3. Negative price = discount → attach to previous item
+         4. Positive price = item
+    ─────────────────────────────────────────────────────────────── */
+    for(let i = 2; i < itemEnd; i++){
+      const line = allLines[i].trim();
+      if(!line || line.length < 2) continue;
+      if(TOTAL_STOP_RE.test(line)) break;
+      if(SKIP_CRE.test(line)) continue;
+      if(BARCODE_RE.test(line)) continue;
+
+      const pm  = line.match(PRICE_RE);
+      const pv  = pm ? parseFloat(pm[1].replace(/[\s$]/g,'')) : null;
+      if(pv === null) continue;  // no price → skip
+
+      /* Discount line (negative price OR discount keyword) */
+      const isDiscount = pv < 0 || DISCOUNT_RE.test(line);
+      if(isDiscount){
+        if(r.items.length > 0 && Math.abs(pv) > 0){
+          const last = r.items[r.items.length - 1];
+          const label = pm ? line.slice(0, line.length - pm[0].length).trim() || line : line;
+          const amt   = Math.abs(pv);
+          last.discounts.push({label, amount: amt});
+          last.final_price = +(last.original_price - last.discounts.reduce((a,d)=>a+d.amount,0)).toFixed(2);
+        }
+        continue;
+      }
+
+      /* Positive price → product */
+      if(pv <= 0) continue;
+      const withoutPrice = line.slice(0, line.length - pm[0].length).trim();
+      if(!withoutPrice || BARCODE_RE.test(withoutPrice)) continue;
+
+      /* Qty: "ITEM NAME   2" or just the name */
+      let qty = 1, itemName = withoutPrice;
+      const qm = withoutPrice.match(/^([\s\S]+?)\s{2,}(\d{1,3})\s*$/);
+      if(qm && +qm[2] >= 1 && +qm[2] <= 99){ qty = +qm[2]; itemName = qm[1].trim(); }
+
+      if(!itemName || itemName.length < 2) continue;
+      if(BARCODE_RE.test(itemName)) continue;
+      if(/^\d[\d\s\-\.]*$/.test(itemName)) continue; // purely numeric name
+
+      r.items.push({
+        id: uid(), receipt_name: itemName, user_product_name: '',
+        qty, original_price: pv, discounts: [], final_price: pv,
+        confidence: itemName.length >= 4 ? 'high' : 'low',
+        needs_review: itemName.length < 3,
+      });
+    }
+
+    /* Post-subtotal discount sweep: scan between firstStopIdx and grandIdx
+       for discounts that appear after subtotal but before grand total
+       (e.g. Watsons Cashier Redemption after 種目 line) */
+    if(firstStopIdx >= 0 && grandIdx > firstStopIdx && r.items.length > 0){
+      const last = r.items[r.items.length - 1];
+      for(let i = firstStopIdx + 1; i <= grandIdx; i++){
+        const line = allLines[i].trim();
+        if(!line || GRAND_RE.test(line)) continue;
+        const pm = line.match(PRICE_RE);
+        const pv = pm ? parseFloat(pm[1].replace(/[\s$]/g,'')) : null;
+        if(pv === null) continue;
+        if((pv < 0 || DISCOUNT_RE.test(line)) && Math.abs(pv) > 0){
+          const amt   = Math.abs(pv);
+          const label = pm ? line.slice(0, line.length - pm[0].length).trim() || line : line;
+          last.discounts.push({label, amount: amt});
+          last.final_price = +(last.original_price - last.discounts.reduce((a,d)=>a+d.amount,0)).toFixed(2);
+        }
+      }
+    }
+
+    return r;
+  }
+
+  return {parse};
+})();
+
+/* ═══════════════════════════════════════════════════════════════════
+   PRODUCT MAPPING
+═══════════════════════════════════════════════════════════════════ */
+const Mapping = {
+  _cache: {},
+  async load(){
+    const rows = await DB.all('mappings');
+    rows.forEach(r=>{ this._cache[r.key]=r.value; });
+  },
+  normalise(s){ return s.toLowerCase().replace(/\s+/g,' ').trim(); },
+  get(receiptName){
+    const k = this.normalise(receiptName);
+    return this._cache[k]||'';
+  },
+  async save(receiptName, userProductName){
+    const k = this.normalise(receiptName);
+    this._cache[k] = userProductName;
+    await DB.put('mappings',{key:k, value:userProductName});
+  },
+  applyToReceipt(r){
+    r.items.forEach(item=>{
+      const mapped = this.get(item.receipt_name);
+      if(mapped) item.user_product_name = mapped;
+    });
+    return r;
+  },
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   RECEIPT PARSING PIPELINE
+   ─────────────────────────────────────────────────────────────────
+   Photo → Gemini JSON
+        → normalizeReceiptData()
+        → validateReceiptData()   (calls isRealPurchasedItem per item)
+        → calculateReceiptTotals()
+        → geminiToReceipt()
+        → Review screen
+═══════════════════════════════════════════════════════════════════ */
+
+/* ── Line classification constants ── */
+const LINE_CLASS = {
+  PRODUCT:'PRODUCT', DISCOUNT:'DISCOUNT', SUBTOTAL:'SUBTOTAL',
+  TOTAL:'TOTAL', PAYMENT:'PAYMENT', CHANGE:'CHANGE',
+  TAX:'TAX', MEMBERSHIP:'MEMBERSHIP', TRANSACTION_INFO:'TRANSACTION_INFO',
+  FOOTER:'FOOTER', OTHER:'OTHER',
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   classifyItemLine(name, price)
+   Classify a receipt line / Gemini item by its name + price.
+   Returns one of LINE_CLASS constants.
+   Used by isRealPurchasedItem and validateReceiptData.
+───────────────────────────────────────────────────────────────── */
+function classifyItemLine(name, price){
+  if(!name) return LINE_CLASS.OTHER;
+  const n = name.trim();
+  const p = parseFloat(price) || 0;
+
+  // ── Discount: negative price always wins ──────────────────────
+  if(p < 0) return LINE_CLASS.DISCOUNT;
+
+  // ── Chinese substring checks (word boundaries don't work for CJK) ──
+  const ZH_TOTAL    = ['總計','合計','應付金額','應付','實收','總數'];
+  const ZH_SUBTOTAL = ['小計','種目','件'];          // "3 種目", "X 件"
+  const ZH_PAYMENT  = ['八達通','微信支付','微信','支付寶','現金','轉數快','拍住賞'];
+  const ZH_CHANGE   = ['找贖','找續','找零','找數'];
+  const ZH_MEMBER   = ['會員','積分','獎賞','回贈','印花'];
+  const ZH_TRANS    = ['交易編號','參考編號','批次','授權碼','收銀機','終端機','收銀員'];
+  const ZH_FOOTER   = ['謝謝惠顧','如有查詢','退換政策','本收據'];
+
+  const containsZH = (arr) => arr.some(kw => n.includes(kw));
+
+  if(containsZH(ZH_TOTAL))   return LINE_CLASS.TOTAL;
+  if(containsZH(ZH_SUBTOTAL) && /^\d/.test(n)) return LINE_CLASS.SUBTOTAL; // "3 種目"
+  if(containsZH(ZH_PAYMENT)) return LINE_CLASS.PAYMENT;
+  if(containsZH(ZH_CHANGE))  return LINE_CLASS.CHANGE;
+  if(containsZH(ZH_MEMBER))  return LINE_CLASS.MEMBERSHIP;
+  if(containsZH(ZH_TRANS))   return LINE_CLASS.TRANSACTION_INFO;
+  if(containsZH(ZH_FOOTER))  return LINE_CLASS.FOOTER;
+
+  // ── English / alphanumeric regex checks ──────────────────────
+  // TOTAL — keyword must NOT be followed by more letters (prevents "Total Body Care")
+  if(/^(?:Total|Grand\s*Total|Amount\s*Due|Net\s*(?:Total|Amount)|合計|總計|應付)(?!\s*[a-zA-Z])/i.test(n))
+    return LINE_CLASS.TOTAL;
+
+  // SUBTOTAL — same guard
+  if(/^(?:Subtotal|Sub\s*Total|小計|\d+\s*(?:items?|種目|件)\s*[:\-]?)(?!\s*[a-zA-Z])/i.test(n))
+    return LINE_CLASS.SUBTOTAL;
+
+  // PAYMENT tenders — keyword NOT followed by more letters
+  if(/^(?:MASTERCARD|MASTER\s*CARD|VISA|AMEX|AMERICAN\s*EXPRESS|UNIONPAY|EPS|OCTOPUS|ALIPAYHK|ALIPAY\s*HK|ALIPAY|WECHAT\s*PAY|WECHATPAY|PAYME|FPS|CASH|Apple\s*Pay)(?!\s*[a-zA-Z])/i.test(n))
+    return LINE_CLASS.PAYMENT;
+  // Payment with optional prefix "GP.MASTERCARD", "APP Label: VISA" etc.
+  if(/(?:^|\s|\.)(MASTERCARD|MASTER\s*CARD|VISA|AMEX|UNIONPAY|EPS|OCTOPUS|ALIPAYHK|WECHAT\s*PAY|PAYME|FPS|CASH)(?!\s*[a-zA-Z])/i.test(n) && !/[^\x00-\x7F]/.test(n.replace(/[A-Za-z0-9\s\.\:]/g,'')))
+    return LINE_CLASS.PAYMENT; // only for pure-ASCII lines (no Chinese product names)
+
+  // CHANGE
+  if(/^Change(?!\s*[a-zA-Z])|^Change\s*Amt/i.test(n)) return LINE_CLASS.CHANGE;
+
+  // TAX / service charge summary
+  if(/^(?:Tax|GST|VAT|Service\s*(?:Charge|Fee)|加一)(?!\s*[a-zA-Z])/i.test(n)) return LINE_CLASS.TAX;
+
+  // TRANSACTION metadata
+  if(/\b(?:TID|MID|Terminal\s*(?:ID)?|Batch\s*(?:No)?|Trace\s*(?:No)?|Approval\s*(?:Code)?|Auth(?:orization)?\s*(?:Code)?|Ref(?:erence)?\s*(?:No)?|RRN|AID\b|TVR\b|ATC\b|TSI\b|ARQC|Txn\s*(?:ID)?|Trans\s*(?:ID|Type)?|Cashier\s*(?:ID|No)?|App\s*Label)\s*[:\s#\-]/i.test(n))
+    return LINE_CLASS.TRANSACTION_INFO;
+
+  // MEMBERSHIP / loyalty
+  if(/\b(?:Member(?:ship)?\s*(?:No|ID|Card|#)|Points?\s*(?:Earned|Balance|Used|Redeemed)|Stamp(?:s)?\s*(?:Earned|Balance)|e-Dollar|Reward\s*Points?|HKTVmall\s*Dollar|Cashback)\b/i.test(n))
+    return LINE_CLASS.MEMBERSHIP;
+
+  // DISCOUNT keywords (positive price, but the line is a promo/saving)
+  if(/\b(?:Discount|Coupon|Redemption|Cashier\s*Redemption|Saving\b|Special\s*Price|\d+\s*Or\s*More|\d+%\s*Off|Buy\s*\d|Multi\s*Buy|Promo\b|優惠|折扣|減價|買.*送)\b/i.test(n))
+    return LINE_CLASS.DISCOUNT;
+
+  // FOOTER noise
+  if(/(?:Thank\s*you|Please\s*(?:retain|keep)|Subject\s*to|www\.|\.com|\.hk|http|No\.\s*of\s*Stamp|NUMBER\s*OF\s*STAMP|I\s+AGREE|NO\s+SIGNATURE|Consignment|Hygiene|Unpacked)/i.test(n))
+    return LINE_CLASS.FOOTER;
+
+  // Pure barcode → OTHER (standalone 6+ digit strings with no letters)
+  if(/^\d{6,}$/.test(n.replace(/[\s\-]/g,''))) return LINE_CLASS.OTHER;
+
+  return LINE_CLASS.PRODUCT;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   isRealPurchasedItem(item, receiptTotal)
+   Returns { ok: bool, reason: string }
+   item must have .name, .lineTotal / .unitPrice
+───────────────────────────────────────────────────────────────── */
+function isRealPurchasedItem(item, receiptTotal){
+  const name  = (item.name||'').trim();
+  const price = parseFloat(item.lineTotal ?? item.unitPrice ?? item.price) || 0;
+
+  if(!name || name.length < 2)
+    return { ok:false, reason:'empty name' };
+
+  const cls = classifyItemLine(name, price);
+
+  if(cls !== LINE_CLASS.PRODUCT && cls !== LINE_CLASS.DISCOUNT){
+    return { ok:false, reason:`classified as ${cls}` };
+  }
+  if(cls === LINE_CLASS.DISCOUNT)
+    return { ok:false, reason:'discount line' };
+
+  // Pure numeric / barcode name (but allow product codes WITH letters like "B09909 日本叮叮...")
+  const stripped = name.replace(/[\s\-\.]/g,'');
+  if(/^\d{6,}$/.test(stripped))
+    return { ok:false, reason:'pure barcode' };
+
+  // Name is >70% digits AND no CJK / meaningful letters
+  const digits = (stripped.match(/\d/g)||[]).length;
+  const hasCJK  = /[一-鿿]/.test(name);
+  const hasLetters = /[a-zA-Z]{2,}/.test(name);
+  if(!hasCJK && !hasLetters && digits/Math.max(1,stripped.length) > 0.70)
+    return { ok:false, reason:'mostly numeric, no letters/CJK' };
+
+  // Price of 0 with no CJK and no letters → metadata
+  if(price === 0 && !hasCJK && !hasLetters)
+    return { ok:false, reason:'zero price, no product text' };
+
+  return { ok:true, reason:'PRODUCT' };
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   normalizeReceiptData(raw)
+   Accept any Gemini JSON shape, normalise field names, coerce types.
+───────────────────────────────────────────────────────────────── */
+function normalizeReceiptData(raw){
+  if(!raw || typeof raw !== 'object') return null;
+
+  // Accept both camelCase and snake_case field names
+  const merchant = raw.merchant || raw.shop || raw.store || raw.shopName || raw.shop_name || '';
+  const branch   = raw.branch   || raw.address || raw.location || '';
+  const date     = _normalizeDate(raw.date || raw.receiptDate || raw.transactionDate || '');
+  const time     = _normalizeTime(raw.time || raw.receiptTime || raw.transactionTime || '');
+  const currency = raw.currency || 'HKD';
+
+  // total — accept multiple field names
+  const total = parseFloat(
+    raw.total ?? raw.grandTotal ?? raw.grand_total ?? raw.totalAmount ??
+    raw.total_amount ?? raw.amountDue ?? raw.netAmount ?? 0
+  ) || 0;
+
+  const subtotal = parseFloat(raw.subtotal ?? raw.subTotal ?? raw.sub_total ?? total) || total;
+
+  // Payment
+  const paymentMethod = _normalizePaymentMethod(
+    raw.paymentMethod || raw.payment_method || raw.payment || ''
+  );
+  const cardLast4 = (raw.cardLast4 || raw.card_last4 || raw.lastFour || raw.last4 || '').toString().replace(/\D/g,'').slice(-4);
+
+  // Items — accept items / products / lineItems
+  const rawItems = raw.items || raw.products || raw.lineItems || raw.line_items || [];
+
+  // Discounts — accept discounts / promotions / savings
+  const rawDiscs = raw.discounts || raw.promotions || raw.savings || raw.coupons || [];
+
+  const category = _normalizeCategory(raw.mainCategory || raw.category || '');
+
+  return {
+    merchant, branch, date, time, currency,
+    total, subtotal, paymentMethod, cardLast4,
+    items: rawItems.map(_normalizeItem),
+    discounts: rawDiscs.map(_normalizeDiscount).filter(d => d.amount >= 0),
+    mainCategory: category,
+    _raw: raw,
+  };
+}
+
+function _normalizeDate(s){
+  if(!s) return '';
+  s = String(s).trim();
+  // Already ISO
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // dd/mm/yyyy or dd-mm-yyyy
+  let m = s.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
+  if(m) return `${m[3]}-${m[2]}-${m[1]}`;
+  // yyyy/mm/dd
+  m = s.match(/^(\d{4})[\/\-](\d{2})[\/\-](\d{2})$/);
+  if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  return '';
+}
+
+function _normalizeTime(s){
+  if(!s) return '';
+  s = String(s).trim();
+  const m = s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(am|pm))?/i);
+  if(!m) return '';
+  let h = parseInt(m[1]), min = m[2];
+  if(m[4]?.toLowerCase()==='pm' && h<12) h+=12;
+  if(m[4]?.toLowerCase()==='am' && h===12) h=0;
+  return `${String(h).padStart(2,'0')}:${min}`;
+}
+
+function _normalizeItem(i){
+  if(!i) return { name:'', qty:1, unitPrice:0, lineTotal:0 };
+  return {
+    name:      String(i.name || i.productName || i.description || i.item || '').trim(),
+    qty:       parseInt(i.qty || i.quantity || i.count || 1) || 1,
+    unitPrice: parseFloat(i.unitPrice || i.unit_price || i.price || i.lineTotal || i.line_total || 0) || 0,
+    lineTotal: parseFloat(i.lineTotal || i.line_total || i.total || i.amount ||
+                          i.unitPrice || i.unit_price || i.price || 0) || 0,
+  };
+}
+
+function _normalizeDiscount(d){
+  if(!d) return { label:'', amount:0 };
+  return {
+    label:  String(d.label || d.name || d.description || d.type || '').trim(),
+    amount: Math.abs(parseFloat(d.amount || d.value || d.saving || 0)) || 0,
+  };
+}
+
+function _normalizePaymentMethod(s){
+  if(!s) return '';
+  const u = String(s).toUpperCase().replace(/[\s\.\-]/g,'');
+  if(/MASTERCARD|MASTER/.test(u)) return 'MasterCard';
+  if(/VISA/.test(u))              return 'VISA';
+  if(/AMEX|AMERICANEXPRESS/.test(u)) return 'AMEX';
+  if(/UNIONPAY/.test(u))          return 'UnionPay';
+  if(/OCTOPUS|八達通/.test(u))   return 'Octopus';
+  if(/EPS|易辦事/.test(u))        return 'EPS';
+  if(/ALIPAYHK|ALIPAY/.test(u))  return 'AlipayHK';
+  if(/WECHAT|微信/.test(u))       return 'WeChat Pay';
+  if(/PAYME/.test(u))             return 'PayMe';
+  if(/FPS|轉數快/.test(u))        return 'FPS';
+  if(/CASH|現金/.test(u))         return 'Cash';
+  if(/APPLEPAY/.test(u))          return 'Apple Pay';
+  return s.trim();
+}
+
+function _normalizeCategory(s){
+  if(!s) return 'other';
+  const c = s.toLowerCase();
+  if(c.includes('food')||c.includes('dining')||c.includes('restaurant')||c.includes('cafe')) return 'food';
+  if(c.includes('transport')||c.includes('travel')&&c.includes('local')) return 'transport';
+  if(c.includes('shop')||c.includes('retail')||c.includes('grocery')||c.includes('supermarket')) return 'shopping';
+  if(c.includes('health')||c.includes('pharma')||c.includes('medical')) return 'healthcare';
+  if(c.includes('personal')||c.includes('beauty')||c.includes('cosmetic')) return 'personalcare';
+  if(c.includes('entertain')) return 'entertainment';
+  if(c.includes('travel')) return 'travel';
+  if(c.includes('sub')||c.includes('streaming')) return 'subscriptions';
+  return 'other';
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   validateReceiptData(g)
+   Remove fake items, move discounts to discounts[].
+   Logs every decision to console for debugging.
+───────────────────────────────────────────────────────────────── */
+function validateReceiptData(g){
+  const total = g.total || 0;
+  const cleanItems = [];
+  const extraDiscs  = [];
+
+  console.log('[SnapTrack] validateReceiptData — input items:', (g.items||[]).length);
+
+  for(const item of (g.items||[])){
+    const check = isRealPurchasedItem(item, total);
+    if(check.ok){
+      cleanItems.push(item);
+      console.log(`  ✅ KEEP  "${item.name}" ($${item.lineTotal}) — ${check.reason}`);
+    } else {
+      // If it was classified as DISCOUNT, capture its amount
+      const cls = classifyItemLine(item.name, item.lineTotal ?? item.unitPrice);
+      if(cls === LINE_CLASS.DISCOUNT){
+        const amt = Math.abs(parseFloat(item.lineTotal ?? item.unitPrice) || 0);
+        if(amt > 0) extraDiscs.push({ label: item.name, amount: amt });
+      }
+      console.log(`  ❌ REMOVE "${item.name}" ($${item.lineTotal}) — ${check.reason}`);
+    }
+  }
+
+  // Merge discounts (Gemini-provided + extracted from bad items)
+  const mergedDiscs = [
+    ...(g.discounts||[]),
+    ...extraDiscs,
+  ].filter(d => d.label && d.amount > 0);
+
+  g.items     = cleanItems;
+  g.discounts = mergedDiscs;
+
+  console.log('[SnapTrack] After validation — items:', cleanItems.length, '| discounts:', mergedDiscs.length);
+  return g;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   calculateReceiptTotals(g)
+   Ensure receipt total comes from the printed total, not from items.
+───────────────────────────────────────────────────────────────── */
+function calculateReceiptTotals(g){
+  // Always trust the printed total from Gemini — never recalculate from items
+  // (item list may be partial; discounts may be receipt-level not per-item)
+  const printedTotal = g.total || 0;
+  const printedSub   = g.subtotal || printedTotal;
+
+  // Sanity: if Gemini returned 0 total but items sum to something, use item sum
+  if(printedTotal === 0 && g.items.length > 0){
+    const itemSum = g.items.reduce((s,i)=>s+(parseFloat(i.lineTotal||i.unitPrice)||0), 0);
+    if(itemSum > 0){
+      g.total    = +itemSum.toFixed(2);
+      g.subtotal = g.total;
+      console.log('[SnapTrack] calculateReceiptTotals — inferred total from items:', g.total);
+    }
+  } else {
+    g.total    = printedTotal;
+    g.subtotal = printedSub;
+  }
+
+  return g;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   geminiToReceipt(g)
+   Map validated + calculated Gemini object → app internal receipt.
+───────────────────────────────────────────────────────────────── */
+function geminiToReceipt(g){
+  const items = (g.items||[]).map(i => {
+    const price = parseFloat(i.lineTotal ?? i.unitPrice) || 0;
+    return {
+      id:                uid(),
+      receipt_name:      i.name.trim(),
+      user_product_name: '',
+      qty:               i.qty || 1,
+      original_price:    price,
+      discounts:         [],
+      final_price:       price,
+      confidence:        i.name.length >= 4 ? 'high' : 'low',
+      needs_review:      false,
+    };
+  });
+
+  // Attach receipt-level discounts from Gemini to the last item so the
+  // review UI (which reads item.discounts[]) can display them.
+  const geminiDiscs = (g.discounts||[]).filter(d => d.amount > 0);
+  if(geminiDiscs.length > 0 && items.length > 0){
+    const last = items[items.length - 1];
+    last.discounts = geminiDiscs.map(d => ({ label: d.label, amount: +d.amount }));
+    last.final_price = +(last.original_price - last.discounts.reduce((s,d)=>s+d.amount,0)).toFixed(2);
+  }
+
+  const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(g.date||'') ? g.date : '';
+
+  const receipt = {
+    id:             uid(),
+    shop_name:      (g.merchant||'').trim(),
+    branch:         (g.branch||'').trim(),
+    date:           dateStr,
+    time:           (g.time||'').trim(),
+    total_amount:   g.total || 0,
+    payment_method: g.paymentMethod || '',
+    payment_amount: g.total || 0,
+    card_last4:     (g.cardLast4||'').trim(),
+    raw_ocr_text:   JSON.stringify(g._raw || g, null, 2),
+    items,
+    category:       g.mainCategory || 'other',
+  };
+
+  console.log('[SnapTrack] geminiToReceipt — final receipt:', {
+    shop: receipt.shop_name,
+    total: receipt.total_amount,
+    payment: receipt.payment_method,
+    items: items.map(i=>i.receipt_name),
+    discounts: (g.discounts||[]).map(d=>`${d.label} -$${d.amount}`),
+  });
+
+  return receipt;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   parseGeminiJSON(rawText)
+   Robustly extract JSON from Gemini response text.
+   Handles: clean JSON, markdown code fences, leading/trailing noise.
+───────────────────────────────────────────────────────────────── */
+/* Escape literal control characters that appear inside JSON string values.
+   Gemini sometimes emits real newlines/tabs inside strings, making JSON invalid. */
+function _sanitizeJSONControls(text){
+  let out = '', inStr = false, esc = false;
+  for(let i = 0; i < text.length; i++){
+    const ch = text[i];
+    if(esc){ out += ch; esc = false; continue; }
+    if(ch === '\\' && inStr){ out += ch; esc = true; continue; }
+    if(ch === '"'){ inStr = !inStr; out += ch; continue; }
+    if(inStr){
+      if(ch === '\n'){ out += '\\n'; continue; }
+      if(ch === '\r'){ out += '\\r'; continue; }
+      if(ch === '\t'){ out += '\\t'; continue; }
+    }
+    out += ch;
+  }
+  return out;
+}
+
+function parseGeminiJSON(rawText){
+  if(!rawText) return null;
+  console.log('[SnapTrack] Raw Gemini response (first 500 chars):', rawText.slice(0,500));
+
+  let text = rawText.trim();
+
+  // Strip markdown code fences: ```json ... ``` or ``` ... ```
+  text = text.replace(/^```(?:json)?\s*/i,'').replace(/\s*```\s*$/,'').trim();
+
+  // If multiple JSON objects, take the first complete one
+  const firstBrace = text.indexOf('{');
+  if(firstBrace > 0) text = text.slice(firstBrace);
+
+  // Always sanitize literal control chars inside strings first
+  text = _sanitizeJSONControls(text);
+
+  // Attempt 1: direct parse
+  try {
+    const parsed = JSON.parse(text);
+    console.log('[SnapTrack] Parsed Gemini JSON OK, keys:', Object.keys(parsed));
+    return parsed;
+  } catch(e1) {
+    console.warn('[SnapTrack] Direct JSON.parse failed:', e1.message);
+  }
+
+  // Attempt 2: extract outermost {...} block
+  try {
+    const start = text.indexOf('{');
+    let depth = 0, end = -1;
+    for(let i = start; i < text.length; i++){
+      if(text[i]==='{') depth++;
+      else if(text[i]==='}') { depth--; if(depth===0){end=i;break;} }
+    }
+    if(start>=0 && end>start){
+      const parsed = JSON.parse(text.slice(start, end+1));
+      console.log('[SnapTrack] Extracted JSON block OK');
+      return parsed;
+    }
+  } catch(e2) {
+    console.warn('[SnapTrack] JSON block extraction failed:', e2.message);
+  }
+
+  // Attempt 3: fix common issues — trailing commas, unquoted keys
+  try {
+    const fixed = text
+      .replace(/,\s*([}\]])/g, '$1')        // trailing commas
+      .replace(/([{,]\s*)([a-zA-Z_]\w*)(\s*:)/g, '$1"$2"$3'); // unquoted keys
+    const parsed = JSON.parse(fixed);
+    console.log('[SnapTrack] Repaired JSON OK');
+    return parsed;
+  } catch(e3) {
+    console.warn('[SnapTrack] JSON repair failed:', e3.message);
+  }
+
+  console.error('[SnapTrack] All JSON parse attempts failed. Raw text:', rawText.slice(0,200));
+  return null;
+}
+
+/* ─── Full pipeline entry point ─── */
+function processGeminiResponse(rawText){
+  const parsed = parseGeminiJSON(rawText);
+  if(!parsed){
+    console.error('[SnapTrack] processGeminiResponse — could not parse JSON');
+    return null;
+  }
+
+  const normalized = normalizeReceiptData(parsed);
+  if(!normalized){
+    console.error('[SnapTrack] processGeminiResponse — normalization failed');
+    return null;
+  }
+  console.log('[SnapTrack] Normalized:', { merchant: normalized.merchant, total: normalized.total, itemCount: normalized.items.length });
+
+  const validated = validateReceiptData(normalized);
+  const calculated = calculateReceiptTotals(validated);
+  return geminiToReceipt(calculated);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   OCR — Google Gemini Vision API
+   Uses gemini-1.5-flash for fast, accurate receipt reading on mobile.
+   API key from Google AI Studio (aistudio.google.com/apikey).
+═══════════════════════════════════════════════════════════════════ */
+const OCR = (() => {
+  // Fallback chain — tried in order until one succeeds
+  const MODELS = [
+    'gemini-2.5-flash',
+    'gemini-2.0-flash-lite',
+    'gemini-flash-latest',
+    'gemini-2.0-flash',
+  ];
+  const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+  function getKey(){ return localStorage.getItem('gemini_key')||''; }
+  function saveKey(k){ localStorage.setItem('gemini_key', k.trim()); }
+  function hasKey(){ return !!getKey(); }
+
+  /* ── JSON prompt ────────────────────────────────────────────────────
+     Ask Gemini to act as a receipt parser and return structured JSON.
+     One API call, no markdown, temperature 0.                        */
+  const PROMPT = `You are an expert Hong Kong receipt parser.
+Analyse the receipt image and return ONLY a single JSON object — no markdown, no explanation, no code fences.
+
+JSON schema:
+{
+  "merchant": "string — shop name exactly as printed",
+  "branch": "string — branch / address line, or empty string",
+  "date": "YYYY-MM-DD or empty string",
+  "time": "HH:MM or empty string",
+  "currency": "HKD",
+  "items": [
+    {
+      "name": "string — product name exactly as printed, keep Traditional Chinese (繁體中文)",
+      "qty": 1,
+      "unitPrice": 0.00,
+      "lineTotal": 0.00
+    }
+  ],
+  "discounts": [
+    { "label": "string", "amount": 0.00 }
+  ],
+  "subtotal": 0.00,
+  "total": 0.00,
+  "paymentMethod": "Cash|Octopus|Mastercard|Visa|UnionPay|EPS|AlipayHK|WeChat Pay|PayMe|FPS|other",
+  "cardLast4": "string or empty",
+  "mainCategory": "Food & Dining|Transportation|Shopping|Healthcare|Personal Care|Entertainment|Travel|Subscriptions|Other"
+}
+
+CRITICAL rules for items[]:
+- Only include REAL purchased products the customer bought.
+- NEVER put these in items[]: 總計, 合計, 小計, Total, Subtotal, Grand Total, Net Amount, Amount Due, Mastercard, Visa, Octopus, 八達通, PayMe, AlipayHK, WeChat Pay, Change, 找贖, transaction IDs, terminal IDs, batch numbers, member points, rewards, coupons, barcode numbers, item counts like "3 種目".
+- Discount lines (negative amounts, "Cashier Redemption", "X% Off", "$X/Y", "Buy N get M") go into discounts[], NOT items[].
+- total must be the final printed total — never sum items to calculate it.
+- Keep all Traditional Chinese characters exactly as printed.`;
+
+  async function _tryModel(model, b64, mime, key){
+    const resp = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        contents:[{ parts:[
+          { inline_data:{ mime_type: mime, data: b64 } },
+          { text: PROMPT }
+        ]}],
+        generationConfig:{ maxOutputTokens:4096, temperature:0,
+          responseMimeType:'application/json' }
+      })
+    });
+    const data = await resp.json();
+    if(!resp.ok){
+      const msg = data.error?.message || `API ${resp.status}`;
+      const retryable = resp.status === 503 || resp.status === 429 ||
+        msg.toLowerCase().includes('demand') || msg.toLowerCase().includes('quota');
+      const err = new Error(msg); err.retryable = retryable; throw err;
+    }
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  }
+
+  /* Convert any URL (blob: or data:) to a base64 data URL */
+  async function _toDataURL(src){
+    if(src.startsWith('data:')) return src; // already data URL
+    // blob: URL — fetch and convert
+    const resp = await fetch(src);
+    const blob = await resp.blob();
+    return new Promise((res, rej) => {
+      const fr = new FileReader();
+      fr.onload = () => res(fr.result);
+      fr.onerror = rej;
+      fr.readAsDataURL(blob);
+    });
+  }
+
+  async function recognize(imageDataUrl, onProgress){
+    const key = getKey();
+    if(!key) throw new Error('no_api_key');
+
+    // Ensure we have a proper data URL (not a blob: URL)
+    let dataUrl;
+    try {
+      dataUrl = await _toDataURL(imageDataUrl);
+    } catch(e) {
+      console.warn('[SnapTrack] _toDataURL failed, using original:', e.message);
+      dataUrl = imageDataUrl;
+    }
+
+    const comma = dataUrl.indexOf(',');
+    const b64   = dataUrl.slice(comma + 1);
+    const mime  = dataUrl.slice(5, dataUrl.indexOf(';'));
+
+    let lastErr;
+    for(let i = 0; i < MODELS.length; i++){
+      const model = MODELS[i];
+      onProgress && onProgress({
+        status: `Scanning with Gemini${i > 0 ? ` (attempt ${i+1})` : ''}…`,
+        progress: 0.3 + i * 0.1
+      });
+      try {
+        const rawText = await _tryModel(model, b64, mime, key);
+        onProgress && onProgress({status:'Processing…', progress:0.92});
+        return rawText; // raw string — pipeline handles JSON parsing
+      } catch(e) {
+        lastErr = e;
+        console.warn(`Model ${model} failed:`, e.message);
+        // Only stop retrying for auth errors; keep trying other models for everything else
+        const isAuthError = e.message && (e.message.includes('API_KEY') || e.message.includes('PERMISSION') || e.message.includes('401'));
+        if(isAuthError) throw e;
+        // continue to next model
+      }
+    }
+    throw lastErr;
+  }
+
+  return { recognize, getKey, saveKey, hasKey };
+})();
+
+/* ═══════════════════════════════════════════════════════════════════
+   APPLICATION STATE & ROUTER
+═══════════════════════════════════════════════════════════════════ */
+const App = (() => {
+  let state = {
+    screen:'home',
+    prevScreen:'home',
+    receipts:[],
+    calYear:  new Date().getFullYear(),
+    calMonth: new Date().getMonth(),
+    filterPayment:'all',
+    filterCategory:'',
+    scanFile:null,
+    scanProcessed:null,
+    reviewReceipt:null,
+    editingId:null,
+    manualPayment:'',
+    manualItems:[],
+  };
+
+  /* ── Navigate ── */
+  function navigate(screen, data={}){
+    const prev = state.screen;
+    // hide all
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    const el = document.getElementById('screen-'+screen);
+    if(!el){ console.warn('Screen not found:',screen); return; }
+    el.classList.add('active');
+    state.prevScreen = prev;
+    state.screen = screen;
+
+    // Update nav active states
+    ['home','receipts','calendar','add'].forEach(id=>{
+      const btn=document.getElementById('nav-'+id);
+      if(btn) btn.classList.toggle('active', id===screen);
+    });
+
+    // Scroll to top
+    el.scrollTop=0;
+
+    // Screen init
+    switch(screen){
+      case 'home':     renderHome(); break;
+      case 'scan':     initScan(); break;
+      case 'review':   renderReview(data.receipt); break;
+      case 'calendar': renderCalendar(); break;
+      case 'receipts': renderReceiptsList(); break;
+      case 'detail':   renderDetail(data.id); break;
+      case 'add':      initAdd(); break;
+      case 'summary':  renderSummary(); break;
+    }
+  }
+
+  function back(){ navigate(state.prevScreen); }
+
+  /* ══════════════════════════════════════════════════════════════
+     HOME SCREEN
+  ══════════════════════════════════════════════════════════════ */
+  function renderHome(){
+    const now = new Date();
+    const yr  = now.getFullYear();
+    const mo  = now.getMonth();
+
+    const thisMonth = state.receipts.filter(r=>{
+      if(!r.date) return false;
+      const d=new Date(r.date+'T00:00:00');
+      return d.getFullYear()===yr && d.getMonth()===mo;
+    });
+
+    const total = thisMonth.reduce((a,r)=>a+(+r.total_amount||0),0);
+    const days  = now.getDate();
+    document.getElementById('stat-total').textContent = fmtMoney(total);
+    document.getElementById('stat-count').textContent = thisMonth.length;
+    document.getElementById('stat-avg').textContent   = fmtMoney(days>0?total/days:0);
+
+    // Recent receipts (last 5)
+    const recent = [...state.receipts]
+      .sort((a,b)=>(b.date||'').localeCompare(a.date||''))
+      .slice(0,5);
+
+    const list = document.getElementById('recent-list');
+    if(!recent.length){
+      list.innerHTML=`<div class="empty-state"><div class="es-icon">🧾</div><p>No receipts yet.<br>Scan your first one!</p></div>`;
+      return;
+    }
+    list.innerHTML = recent.map(r=>receiptRowHTML(r)).join('');
+  }
+
+  function receiptRowHTML(r){
+    const initials = shopInitial(r.shop_name);
+    const color    = shopColor(r.shop_name);
+    const cat      = catById(r.category);
+    return `
+    <div class="receipt-row" onclick="App.navigate('detail',{id:'${r.id}'})">
+      <div class="shop-logo" style="background:${color}">${initials}</div>
+      <div class="receipt-info">
+        <div class="receipt-shop">${esc(r.shop_name||'Unknown')}</div>
+        <div class="receipt-meta">${cat.icon} ${fmtDate(r.date)} · ${r.items.length} item${r.items.length!==1?'s':''}</div>
+      </div>
+      <div class="receipt-amt">${fmtMoney(r.total_amount)}</div>
+      <div class="chevron">›</div>
+    </div>`;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     SCAN SCREEN
+  ══════════════════════════════════════════════════════════════ */
+  function initScan(){
+    // Wire up file inputs
+    const fi  = document.getElementById('file-input');
+    const fig = document.getElementById('file-input-gallery');
+    fi.onchange  = e => handleFile(e.target.files[0]);
+    fig.onchange = e => handleFile(e.target.files[0]);
+    // Reset if no file chosen yet
+    if(!state.scanFile) resetScan();
+  }
+
+  function resetScan(){
+    state.scanFile=null; state.scanProcessed=null;
+    document.getElementById('preview-container').style.display='none';
+    document.getElementById('scan-actions').style.display='none';
+    document.getElementById('ocr-progress').style.display='none';
+    document.getElementById('upload-zone').style.display='flex';
+    document.getElementById('file-input').value='';
+    document.getElementById('file-input-gallery').value='';
+  }
+
+  async function handleFile(file){
+    if(!file) return;
+    state.scanFile = file;
+    document.getElementById('upload-zone').style.display='none';
+
+    // Show original preview
+    const prevImg  = document.getElementById('preview-img');
+    const prevCont = document.getElementById('preview-container');
+    prevImg.src = URL.createObjectURL(file);
+    prevCont.style.display='block';
+    document.getElementById('preview-label').textContent='Original';
+
+    // Show scan actions
+    document.getElementById('scan-actions').style.display='block';
+  }
+
+  async function startOCR(){
+    if(!state.scanFile){ toast('Please select a photo first'); return; }
+
+    // Prompt for API key if not set
+    if(!OCR.hasKey()){
+      showApiKey(true); // true = show after-save scan will continue
+      return;
+    }
+
+    document.getElementById('scan-actions').style.display='none';
+    document.getElementById('ocr-progress').style.display='block';
+
+    const setMsg=(label,pct)=>{
+      document.getElementById('ocr-status').textContent = label;
+      document.getElementById('ocr-msg').textContent    = label;
+      document.getElementById('progress-fill').style.width = (pct||0)+'%';
+    };
+
+    // ── Step 1: Image preprocessing ──────────────────────────────
+    setMsg('Preprocessing image…', 10);
+    let processedData;
+    try{
+      processedData = await ImageProc.process(state.scanFile);
+      document.getElementById('preview-img').src = processedData;
+      document.getElementById('preview-label').textContent = 'Processed';
+      state.scanProcessed = processedData;
+    } catch(e){
+      processedData = URL.createObjectURL(state.scanFile);
+    }
+
+    // ── Step 2: Gemini Vision → raw text ────────────────────────
+    let rawGeminiText = null;
+    let ocrError      = null;
+    try{
+      rawGeminiText = await OCR.recognize(processedData, m=>{
+        setMsg(m.status || 'Reading…', Math.round((m.progress||0.5)*80)+10);
+      });
+    } catch(e){
+      ocrError = e;
+      console.warn('OCR error:', e.message);
+      if(e.message === 'no_api_key'){
+        document.getElementById('ocr-progress').style.display='none';
+        document.getElementById('scan-actions').style.display='block';
+        showApiKey(true);
+        return;
+      }
+    }
+
+    // ── Step 3: Full pipeline: parse → normalize → validate → totals ──
+    let receipt;
+    if(rawGeminiText){
+      setMsg('Processing receipt…', 94);
+      receipt = processGeminiResponse(rawGeminiText);
+    }
+
+    if(receipt){
+      if(!receipt.date) receipt.date = today();
+      if(!receipt.time) receipt.time = nowTime();
+      Mapping.applyToReceipt(receipt);
+      setMsg('Done! ✅', 100);
+    } else {
+      receipt = {
+        id:uid(), shop_name:'', branch:'',
+        date:today(), time:nowTime(),
+        total_amount:0, payment_method:'', payment_amount:0, card_last4:'',
+        raw_ocr_text:'', items:[],
+      };
+      const why = ocrError
+        ? `Error: ${ocrError.message} — enter details manually.`
+        : 'Could not read receipt — please enter details manually.';
+      setMsg('⚠ '+why, 100);
+      toast(why, 5000);
+    }
+
+    // Compress and attach photo to receipt
+    try{
+      const img = new Image();
+      await new Promise(res=>{ img.onload=res; img.onerror=res; img.src=processedData; });
+      const MAX=900, scale=Math.min(1,MAX/Math.max(img.width,img.height));
+      const c=document.createElement('canvas');
+      c.width=Math.round(img.width*scale); c.height=Math.round(img.height*scale);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      receipt.image_data = c.toDataURL('image/jpeg', 0.75);
+    }catch(e){ /* photo save failed silently */ }
+
+    setTimeout(()=>{
+      document.getElementById('ocr-progress').style.display='none';
+      navigate('review', {receipt});
+    }, 600);
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     REVIEW SCREEN
+  ══════════════════════════════════════════════════════════════ */
+  /* Category grid callbacks keyed by gridId */
+  const _catCallbacks = {};
+
+  function renderCatGrid(gridId, selectedId, onSelect){
+    const grid = document.getElementById(gridId);
+    if(!grid) return;
+    _catCallbacks[gridId] = onSelect; // store callback, never serialise it
+    const cats = allCategories();
+    grid.innerHTML = cats.map(c=>{
+      const sel = c.id === selectedId;
+      return `<button onclick="App.selectCat('${gridId}','${c.id}')" data-cat="${c.id}"
+        style="display:inline-flex;align-items:center;gap:4px;padding:6px 10px;
+               border-radius:50px;font-size:12px;font-weight:700;border:2px solid;
+               transition:all .15s;cursor:pointer;
+               background:${sel?'var(--red)':'var(--card)'};
+               color:${sel?'#fff':'var(--text-mid)'};
+               border-color:${sel?'var(--red)':'var(--border)'}">
+        ${c.icon} ${c.label}
+      </button>`;
+    }).join('') +
+    `<button onclick="App.showAddCat('${gridId}')"
+      style="display:inline-flex;align-items:center;gap:4px;padding:6px 10px;
+             border-radius:50px;font-size:12px;font-weight:700;
+             border:2px dashed var(--border);background:none;
+             color:var(--text-lt);cursor:pointer">
+      ➕ New
+    </button>`;
+  }
+
+  function selectCat(gridId, catId){
+    // Update visual state
+    const grid = document.getElementById(gridId);
+    if(grid) grid.querySelectorAll('button[data-cat]').forEach(b=>{
+      const sel = b.dataset.cat === catId;
+      b.style.background  = sel ? 'var(--red)' : 'var(--card)';
+      b.style.color       = sel ? '#fff'        : 'var(--text-mid)';
+      b.style.borderColor = sel ? 'var(--red)'  : 'var(--border)';
+    });
+    // Fire stored callback
+    const cb = _catCallbacks[gridId];
+    if(cb) cb(catId);
+  }
+
+  let _addCatGridId = '';
+  function showAddCat(gridId){
+    _addCatGridId = gridId;
+    document.getElementById('newcat-icon').value = '';
+    document.getElementById('newcat-name').value = '';
+    openModal('modal-addcat');
+  }
+
+  function saveCustomCat(){
+    const icon  = document.getElementById('newcat-icon').value.trim() || '📌';
+    const label = document.getElementById('newcat-name').value.trim();
+    if(!label){ toast('Please enter a category name'); return; }
+    const id = CustomCats.add(icon, label);
+    closeModal('modal-addcat');
+    toast(`"${icon} ${label}" added!`);
+    // Re-render the originating grid with new cat selected
+    if(_addCatGridId === 'rv-cat-grid'){
+      renderCatGrid('rv-cat-grid', id, _rvCatSelect);
+      _rvCatSelect(id);
+    } else if(_addCatGridId === 'add-cat-grid'){
+      renderCatGrid('add-cat-grid', id, _addCatSelect);
+      _addCatSelect(id);
+    } else if(_addCatGridId === 'editcat-grid'){
+      renderCatGrid('editcat-grid', id, _catCallbacks['editcat-grid']);
+    }
+  }
+
+  // Shared stable callbacks for category grids (single-arg — selectCat handles visuals)
+  function _rvCatSelect(catId){
+    if(state.reviewReceipt) state.reviewReceipt.category = catId;
+  }
+  function _addCatSelect(catId){
+    state.manualCategory = catId;
+  }
+
+  function renderReview(r){
+    if(!r){ r=state.reviewReceipt; }
+    if(!r) return;
+    state.reviewReceipt = r;
+
+    // Auto-assign category if not set
+    if(!r.category) r.category = autoCategory(r.shop_name);
+
+    document.getElementById('rv-shop').value    = r.shop_name||'';
+    document.getElementById('rv-branch').value  = r.branch||'';
+    document.getElementById('rv-date').value    = r.date||today();
+    document.getElementById('rv-time').value    = r.time||nowTime();
+    document.getElementById('rv-payment').value = r.payment_method||'';
+    document.getElementById('rv-card4').value   = r.card_last4||'';
+    document.getElementById('rv-total-input').value  = r.total_amount||'';
+    document.getElementById('rv-paid').value    = r.payment_amount||'';
+
+    document.getElementById('raw-text-box').textContent = r.raw_ocr_text||'';
+
+    // Sync payment buttons
+    document.querySelectorAll('.rv-pay-btn').forEach(b=>{
+      const sel = b.dataset.pay === r.payment_method;
+      b.classList.toggle('selected', sel);
+    });
+
+    renderCatGrid('rv-cat-grid', r.category, _rvCatSelect);
+
+    renderItems();
+    updateTotals();
+  }
+
+  function renderItems(){
+    const r=state.reviewReceipt;
+    if(!r) return;
+    const list=document.getElementById('items-list');
+    list.innerHTML=r.items.map((item,idx)=>itemCardHTML(item,idx)).join('');
+  }
+
+  function itemCardHTML(item,idx){
+    const discountHTML = item.discounts.length>0 ?
+      item.discounts.map(d=>`<span class="discount-tag">-${fmtMoney(d.amount)} ${esc(d.label)}</span>`).join('') : '';
+    const reviewBadge  = item.needs_review ? `<span class="review-badge">⚠ Review</span>` : '';
+    return `
+    <div class="item-card ${item.needs_review?'needs-review':''} ${item.original_price<0?'discount':''}" id="icard-${idx}">
+      <div class="item-top">
+        <div class="item-name-wrap">
+          <div class="item-receipt-name">📄 ${esc(item.receipt_name)}</div>
+          <div class="item-user-name">
+            <input type="text" value="${esc(item.user_product_name||item.receipt_name)}"
+              placeholder="Friendly name…"
+              oninput="App.updateItemName(${idx},this.value)"
+              onblur="App.saveItemMapping(${idx})"/>
+          </div>
+        </div>
+        <div class="item-price-col">
+          <div class="item-price">${fmtMoney(item.final_price)}</div>
+          ${item.discounts.length>0?`<div class="item-orig-price">${fmtMoney(item.original_price)}</div>`:''}
+        </div>
+      </div>
+      <div class="item-bottom">
+        <div class="qty-ctrl">
+          <button class="qty-btn" onclick="App.changeQty(${idx},-1)">−</button>
+          <span class="qty-val">${item.qty}</span>
+          <button class="qty-btn" onclick="App.changeQty(${idx},1)">+</button>
+        </div>
+        ${discountHTML}${reviewBadge}
+        <button class="item-del-btn" onclick="App.deleteItem(${idx})">🗑</button>
+      </div>
+    </div>`;
+  }
+
+  function updateTotals(){
+    const r=state.reviewReceipt; if(!r) return;
+    const subtotal  = r.items.reduce((a,i)=>a+(+i.original_price||0),0);
+    const discounts = r.items.reduce((a,i)=>a+i.discounts.reduce((b,d)=>b+(+d.amount||0),0),0);
+    // Use the printed total from the receipt as truth; fall back to item math only if not set
+    const printedTotal = parseFloat(document.getElementById('rv-total-input').value) || r.total_amount || 0;
+    const displayTotal = printedTotal > 0 ? printedTotal : Math.max(0, subtotal - discounts);
+    document.getElementById('rv-subtotal').textContent        = fmtMoney(subtotal);
+    document.getElementById('rv-discounts').textContent       = '-'+fmtMoney(discounts);
+    document.getElementById('rv-total-display').textContent   = fmtMoney(displayTotal);
+    if(!document.getElementById('rv-total-input').value)
+      document.getElementById('rv-total-input').value = displayTotal.toFixed(2);
+  }
+
+  function updateItemName(idx,val){
+    if(!state.reviewReceipt) return;
+    state.reviewReceipt.items[idx].user_product_name=val;
+  }
+
+  async function saveItemMapping(idx){
+    const item=state.reviewReceipt?.items[idx];
+    if(!item||!item.user_product_name) return;
+    if(item.user_product_name.trim()!==item.receipt_name.trim()){
+      await Mapping.save(item.receipt_name, item.user_product_name);
+    }
+  }
+
+  function changeQty(idx,delta){
+    const item=state.reviewReceipt?.items[idx]; if(!item) return;
+    item.qty=Math.max(1,item.qty+delta);
+    document.querySelectorAll(`#icard-${idx} .qty-val`).forEach(el=>el.textContent=item.qty);
+  }
+
+  function deleteItem(idx){
+    if(!state.reviewReceipt) return;
+    state.reviewReceipt.items.splice(idx,1);
+    renderItems(); updateTotals();
+  }
+
+  function addBlankItem(){
+    if(!state.reviewReceipt) return;
+    state.reviewReceipt.items.push({
+      id:uid(), receipt_name:'New item', user_product_name:'',
+      qty:1, original_price:0, discounts:[], final_price:0,
+      confidence:'low', needs_review:true,
+    });
+    renderItems(); updateTotals();
+    // Scroll to last
+    const list=document.getElementById('items-list');
+    list.lastElementChild?.scrollIntoView({behavior:'smooth'});
+  }
+
+  function toggleRaw(){
+    const box=document.getElementById('raw-text-box');
+    box.style.display=box.style.display==='none'?'block':'none';
+  }
+
+  async function saveReceipt(){
+    const r=state.reviewReceipt; if(!r) return;
+    r.shop_name    = document.getElementById('rv-shop').value.trim()||'Unknown';
+    r.branch       = document.getElementById('rv-branch').value.trim();
+    r.date         = document.getElementById('rv-date').value||today();
+    r.time         = document.getElementById('rv-time').value||nowTime();
+    r.payment_method=document.getElementById('rv-payment').value.trim();
+    r.card_last4   = document.getElementById('rv-card4').value.trim();
+    r.total_amount = parseFloat(document.getElementById('rv-total-input').value)||0;
+    r.payment_amount=parseFloat(document.getElementById('rv-paid').value)||r.total_amount;
+    if(!r.category) r.category = autoCategory(r.shop_name);
+
+    // Save all item mappings
+    for(let i=0;i<r.items.length;i++) await saveItemMapping(i);
+
+    // Upsert
+    const existing=state.receipts.findIndex(x=>x.id===r.id);
+    if(existing>=0) state.receipts[existing]=r;
+    else state.receipts.push(r);
+
+    await DB.put('receipts',r);
+    toast('Receipt saved! ✅');
+    navigate('detail',{id:r.id});
+  }
+
+  function discardReview(){
+    state.reviewReceipt=null;
+    navigate('home');
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     CALENDAR SCREEN
+  ══════════════════════════════════════════════════════════════ */
+  function renderCalendar(){
+    const yr=state.calYear, mo=state.calMonth;
+    const months=['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+    document.getElementById('cal-month-label').textContent=`${months[mo]} ${yr}`;
+
+    // Build spending map
+    const spendMap={};
+    state.receipts.forEach(r=>{
+      if(!r.date) return;
+      const d=new Date(r.date+'T00:00:00');
+      if(d.getFullYear()===yr && d.getMonth()===mo){
+        spendMap[d.getDate()]=(spendMap[d.getDate()]||0)+(+r.total_amount||0);
+      }
+    });
+
+    // Render grid
+    const firstDay=new Date(yr,mo,1).getDay();
+    const daysInMonth=new Date(yr,mo+1,0).getDate();
+    const prevDays=new Date(yr,mo,0).getDate();
+    const todayD=new Date().getDate(), todayM=new Date().getMonth(), todayY=new Date().getFullYear();
+
+    let html='';
+    // leading blanks from prev month
+    for(let i=firstDay-1;i>=0;i--){
+      const d=prevDays-i;
+      html+=`<div class="cal-day other-month"><div class="cal-day-num">${d}</div></div>`;
+    }
+    for(let d=1;d<=daysInMonth;d++){
+      const spend=spendMap[d]||0;
+      const isToday=d===todayD&&mo===todayM&&yr===todayY;
+      html+=`<div class="cal-day ${spend>0?'has-spend':''} ${isToday?'today':''}"
+        onclick="App.calSelectDay(${yr},${mo},${d})">
+        <div class="cal-day-num">${d}</div>
+        ${spend>0?`<div class="cal-day-amt">${fmtMoney(spend)}</div>`:''}
+      </div>`;
+    }
+    document.getElementById('cal-grid').innerHTML=html;
+  }
+
+  function calNav(dir){
+    state.calMonth+=dir;
+    if(state.calMonth>11){state.calMonth=0;state.calYear++;}
+    if(state.calMonth<0){state.calMonth=11;state.calYear--;}
+    renderCalendar();
+    document.getElementById('cal-sum-title').textContent='Select a day';
+    document.getElementById('cal-day-content').innerHTML=
+      `<div class="empty-state"><div class="es-icon">📅</div><p>Tap a day to see receipts</p></div>`;
+  }
+
+  function calSelectDay(yr,mo,d){
+    const iso=`${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    document.getElementById('cal-sum-title').textContent=`${d} ${months[mo]} ${yr}`;
+    const recs=state.receipts.filter(r=>r.date===iso);
+    if(!recs.length){
+      document.getElementById('cal-day-content').innerHTML=
+        `<div class="empty-state"><div class="es-icon">🍃</div><p>No receipts on this day</p></div>`;
+      return;
+    }
+    document.getElementById('cal-day-content').innerHTML=
+      `<div class="day-receipts-list">${recs.map(r=>receiptRowHTML(r)).join('')}</div>`;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     RECEIPTS LIST
+  ══════════════════════════════════════════════════════════════ */
+  function renderReceiptsList(){
+    // Render category chips
+    const catChips = document.getElementById('cat-chips');
+    if(catChips){
+      catChips.innerHTML = `<button class="chip ${!state.filterCategory?'active':''}"
+        onclick="App.setCatFilter('',this)">🗂 All Categories</button>` +
+        CATEGORIES.map(c=>`<button class="chip ${state.filterCategory===c.id?'active':''}"
+          onclick="App.setCatFilter('${c.id}',this)">${c.icon} ${c.label}</button>`).join('');
+    }
+    filterReceipts();
+  }
+
+  function setFilter(val,btn){
+    state.filterPayment=val;
+    document.querySelectorAll('#filter-chips .chip').forEach(c=>c.classList.remove('active'));
+    btn.classList.add('active');
+    filterReceipts();
+  }
+
+  function setCatFilter(val,btn){
+    state.filterCategory=val;
+    document.querySelectorAll('#cat-chips .chip').forEach(c=>c.classList.remove('active'));
+    btn.classList.add('active');
+    filterReceipts();
+  }
+
+  function filterReceipts(){
+    const q=(document.getElementById('search-input')?.value||'').toLowerCase();
+    const fp=state.filterPayment;
+    const fc=state.filterCategory||'';
+
+    let recs=[...state.receipts].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+
+    if(fp!=='all') recs=recs.filter(r=>r.payment_method===fp);
+    if(fc) recs=recs.filter(r=>(r.category||autoCategory(r.shop_name))===fc);
+    if(q) recs=recs.filter(r=>{
+      const hay=[r.shop_name,r.branch,...r.items.map(i=>i.receipt_name+' '+i.user_product_name)]
+        .join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+
+    const list=document.getElementById('receipts-list');
+    if(!recs.length){
+      list.innerHTML=`<div class="empty-state"><div class="es-icon">🔍</div><p>No receipts found</p></div>`;
+      return;
+    }
+
+    // Group by month
+    let lastMo='';
+    list.innerHTML=recs.map(r=>{
+      const mo=r.date?r.date.slice(0,7):'';
+      let hdr='';
+      if(mo!==lastMo){
+        lastMo=mo;
+        const [y,m]=mo.split('-');
+        const months=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        hdr=`<div class="month-group-hdr">${months[+m]||mo} ${y||''}</div>`;
+      }
+      return hdr+receiptRowHTML(r);
+    }).join('');
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     RECEIPT DETAIL
+  ══════════════════════════════════════════════════════════════ */
+  function renderDetail(id){
+    const r=state.receipts.find(x=>x.id===id); if(!r) return;
+    state.editingId=id;
+    document.getElementById('det-shop').textContent=r.shop_name||'Unknown';
+    document.getElementById('det-branch').textContent=r.branch||'';
+    document.getElementById('det-total').textContent=fmtMoney(r.total_amount);
+    document.getElementById('det-date').textContent=fmtDate(r.date);
+    document.getElementById('det-payment').textContent=
+      [r.payment_method,r.card_last4?`···${r.card_last4}`:''].filter(Boolean).join(' ');
+
+    const cat = catById(r.category || autoCategory(r.shop_name));
+    const chips=[
+      `<span onclick="App.showEditCat()" style="cursor:pointer" title="Tap to change">${cat.icon} ${cat.label} ✎</span>`,
+      r.date&&`📅 ${fmtDate(r.date)}`,
+      r.time&&`🕐 ${r.time}`,
+      r.payment_method&&`💳 ${r.payment_method}`,
+    ].filter(Boolean);
+    document.getElementById('det-chips').innerHTML=
+      chips.map(c=>`<span class="detail-chip">${c}</span>`).join('');
+
+    const itemsHTML=r.items.map(item=>`
+      <div class="detail-item-card">
+        <div style="display:flex;justify-content:space-between;align-items:start">
+          <div>
+            <div class="di-name">${esc(item.user_product_name||item.receipt_name)}</div>
+            ${item.user_product_name&&item.user_product_name!==item.receipt_name?
+              `<div class="di-receipt-name">${esc(item.receipt_name)}</div>`:''}
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:16px;font-weight:900">${fmtMoney(item.final_price)}</div>
+            ${item.qty>1?`<div style="font-size:12px;color:var(--text-lt)">×${item.qty}</div>`:''}
+          </div>
+        </div>
+        ${item.discounts.map(d=>
+          `<div class="di-discount">🏷 ${esc(d.label)} -${fmtMoney(d.amount)}</div>`
+        ).join('')}
+      </div>`).join('');
+
+    document.getElementById('det-items-list').innerHTML=
+      itemsHTML || `<div class="empty-state"><p>No items parsed</p></div>`;
+
+    // Show photo if available
+    const photoWrap = document.getElementById('det-photo-wrap');
+    const photoImg  = document.getElementById('det-photo-img');
+    if(r.image_data){
+      photoImg.src = r.image_data;
+      photoWrap.style.display = 'block';
+      document.getElementById('det-photo-box').style.display = 'block'; // auto-expand
+      document.getElementById('det-photo-chevron').textContent = '⌄';
+    } else {
+      photoWrap.style.display = 'none';
+    }
+  }
+
+  function showEditCat(){
+    const r = state.receipts.find(x=>x.id===state.editingId);
+    if(!r) return;
+    const curCat = r.category || autoCategory(r.shop_name);
+    renderCatGrid('editcat-grid', curCat, async function(catId){
+      r.category = catId;
+      await DB.put('receipts', r);
+      // Update in-memory copy too
+      const idx = state.receipts.findIndex(x=>x.id===r.id);
+      if(idx>=0) state.receipts[idx]=r;
+      closeModal('modal-editcat');
+      toast('Category updated ✅');
+      renderDetail(r.id);
+    });
+    openModal('modal-editcat');
+  }
+
+  function toggleDetPhoto(){
+    const box = document.getElementById('det-photo-box');
+    const chev = document.getElementById('det-photo-chevron');
+    const open = box.style.display === 'none';
+    box.style.display = open ? 'block' : 'none';
+    chev.textContent  = open ? '⌄' : '›';
+  }
+
+  function editReceipt(){
+    const r=state.receipts.find(x=>x.id===state.editingId);
+    if(r){ state.reviewReceipt=r; navigate('review',{receipt:r}); }
+  }
+
+  async function deleteReceipt(){
+    if(!state.editingId) return;
+    if(!confirm('Delete this receipt?')) return;
+    await DB.del('receipts',state.editingId);
+    state.receipts=state.receipts.filter(x=>x.id!==state.editingId);
+    toast('Receipt deleted');
+    navigate('receipts');
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     MANUAL ADD
+  ══════════════════════════════════════════════════════════════ */
+  function initAdd(){
+    document.getElementById('add-date').value=today();
+    document.getElementById('add-time').value=nowTime();
+    document.getElementById('add-shop').value='';
+    document.getElementById('add-branch').value='';
+    document.getElementById('add-total').value='';
+    document.getElementById('add-card4').value='';
+    state.manualPayment='';
+    state.manualCategory='other';
+    state.manualItems=[{id:uid(),name:'',qty:1,price:''}];
+    document.querySelectorAll('.pay-opt').forEach(b=>b.classList.remove('selected'));
+    renderManualItems();
+    renderCatGrid('add-cat-grid', state.manualCategory, _addCatSelect);
+  }
+
+  function selectPay(btn){
+    document.querySelectorAll('#pay-grid .pay-opt').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    state.manualPayment=btn.dataset.pay;
+  }
+
+  function selectRvPay(btn){
+    document.querySelectorAll('.rv-pay-btn').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    document.getElementById('rv-payment').value = btn.dataset.pay;
+    if(state.reviewReceipt) state.reviewReceipt.payment_method = btn.dataset.pay;
+  }
+
+  function addManualItem(){
+    state.manualItems.push({id:uid(),name:'',qty:1,price:''});
+    renderManualItems();
+  }
+
+  function renderManualItems(){
+    const el=document.getElementById('manual-items');
+    el.innerHTML=state.manualItems.map((it,i)=>`
+      <div class="card-sm" style="margin-bottom:8px">
+        <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:end">
+          <div>
+            <label class="input-label">Item Name</label>
+            <input class="input" style="padding:10px 12px" type="text" value="${esc(it.name)}"
+              placeholder="e.g. Milk" oninput="App.setManualItem(${i},'name',this.value)"/>
+          </div>
+          <div style="width:56px">
+            <label class="input-label">Qty</label>
+            <input class="input" style="padding:10px 8px;text-align:center" type="number" min="1" value="${it.qty}"
+              oninput="App.setManualItem(${i},'qty',+this.value)"/>
+          </div>
+          <div style="width:80px">
+            <label class="input-label">Price</label>
+            <input class="input" style="padding:10px 8px" type="number" step="0.1" value="${it.price}"
+              placeholder="0.00" oninput="App.setManualItem(${i},'price',this.value)"/>
+          </div>
+        </div>
+        ${state.manualItems.length>1?`<button onclick="App.removeManualItem(${i})"
+          style="color:var(--red);font-size:12px;font-weight:700;margin-top:8px">Remove</button>`:''}
+      </div>`).join('');
+  }
+
+  function setManualItem(i,field,val){ state.manualItems[i][field]=val; }
+  function removeManualItem(i){
+    state.manualItems.splice(i,1);
+    renderManualItems();
+  }
+
+  async function saveManual(){
+    const shop=document.getElementById('add-shop').value.trim();
+    if(!shop){ toast('Please enter shop name'); return; }
+    const total=parseFloat(document.getElementById('add-total').value)||
+      state.manualItems.reduce((a,i)=>a+((+i.price||0)*(+i.qty||1)),0);
+
+    const r={
+      id:uid(),
+      shop_name:shop,
+      branch:document.getElementById('add-branch').value.trim(),
+      date:document.getElementById('add-date').value||today(),
+      time:document.getElementById('add-time').value||nowTime(),
+      total_amount:total,
+      payment_method:state.manualPayment,
+      payment_amount:total,
+      card_last4:document.getElementById('add-card4').value.trim(),
+      category: state.manualCategory || autoCategory(shop),
+      raw_ocr_text:'',
+      items:state.manualItems.filter(i=>i.name).map(i=>({
+        id:uid(),
+        receipt_name:i.name,
+        user_product_name:i.name,
+        qty:+i.qty||1,
+        original_price:+i.price||0,
+        discounts:[],
+        final_price:+i.price||0,
+        confidence:'high',
+        needs_review:false,
+      })),
+    };
+
+    state.receipts.push(r);
+    await DB.put('receipts',r);
+    toast('Expense saved! ✅');
+    navigate('home');
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     SUMMARY
+  ══════════════════════════════════════════════════════════════ */
+  function renderSummary(){
+    const body=document.getElementById('summary-body');
+    const now=new Date();
+
+    // Last 6 months
+    const months=[];
+    for(let i=5;i>=0;i--){
+      const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+      months.push({yr:d.getFullYear(),mo:d.getMonth()});
+    }
+    const mo_names=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    const barData=months.map(({yr,mo})=>{
+      const total=state.receipts
+        .filter(r=>{if(!r.date)return false;const d=new Date(r.date+'T00:00:00');return d.getFullYear()===yr&&d.getMonth()===mo;})
+        .reduce((a,r)=>a+(+r.total_amount||0),0);
+      return {label:mo_names[mo],total};
+    });
+
+    const max=Math.max(...barData.map(b=>b.total),1);
+
+    // Payment breakdown
+    const payMap={};
+    state.receipts.forEach(r=>{
+      const p=r.payment_method||'Unknown';
+      payMap[p]=(payMap[p]||0)+(+r.total_amount||0);
+    });
+    const payTotal=Object.values(payMap).reduce((a,v)=>a+v,0);
+
+    body.innerHTML=`
+      <h3 style="font-size:16px;font-weight:800;margin:16px 0 12px">Monthly Spending</h3>
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:flex-end;gap:8px;height:120px;padding:8px 0">
+          ${barData.map(b=>`
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+              <div style="font-size:9px;font-weight:700;color:var(--text-lt)">${fmtMoney(b.total).replace('$','$')}</div>
+              <div style="width:100%;background:var(--red);border-radius:6px 6px 0 0;
+                height:${Math.round((b.total/max)*90)}px;min-height:${b.total>0?4:0}px;
+                opacity:.85"></div>
+              <div style="font-size:10px;font-weight:700;color:var(--text-mid)">${b.label}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+      <h3 style="font-size:16px;font-weight:800;margin:0 0 12px">By Payment Method</h3>
+      <div class="card">
+        ${Object.entries(payMap).map(([p,v])=>`
+          <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;margin-bottom:4px">
+              <span>${p}</span><span>${fmtMoney(v)}</span>
+            </div>
+            <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+              <div style="height:100%;background:var(--blue);border-radius:3px;width:${Math.round((v/payTotal)*100)}%"></div>
+            </div>
+          </div>`).join('')||'<p style="color:var(--text-lt);text-align:center;padding:16px">No data yet</p>'}
+      </div>`;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     MODALS
+  ══════════════════════════════════════════════════════════════ */
+  function showTopShops(){
+    const shopMap={};
+    state.receipts.forEach(r=>{
+      const k=r.shop_name||'Unknown';
+      if(!shopMap[k]) shopMap[k]={name:k,count:0,total:0};
+      shopMap[k].count++;
+      shopMap[k].total+=(+r.total_amount||0);
+    });
+    const sorted=Object.values(shopMap).sort((a,b)=>b.total-a.total).slice(0,10);
+    document.getElementById('top-shops-list').innerHTML=sorted.map(s=>`
+      <div class="receipt-row" style="margin-bottom:8px">
+        <div class="shop-logo" style="background:${shopColor(s.name)}">${shopInitial(s.name)}</div>
+        <div class="receipt-info">
+          <div class="receipt-shop">${esc(s.name)}</div>
+          <div class="receipt-meta">${s.count} receipt${s.count!==1?'s':''}</div>
+        </div>
+        <div class="receipt-amt">${fmtMoney(s.total)}</div>
+      </div>`).join('')||'<p style="text-align:center;color:var(--text-lt);padding:16px">No receipts yet</p>';
+    openModal('modal-shops');
+  }
+
+  function showCategories(){
+    const totals={};
+    state.receipts.forEach(r=>{
+      const id = r.category || autoCategory(r.shop_name);
+      totals[id]=(totals[id]||0)+(+r.total_amount||0);
+    });
+    const grand = Object.values(totals).reduce((a,v)=>a+v,0)||1;
+    document.getElementById('categories-list').innerHTML=
+      allCategories().map(c=>{
+        const total=totals[c.id]||0;
+        if(!total) return '';
+        const pct=Math.round((total/grand)*100);
+        return `
+        <div onclick="App.filterByCat('${c.id}')" style="padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+            <div style="width:40px;height:40px;border-radius:12px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:22px">${c.icon}</div>
+            <div style="flex:1">
+              <div style="font-weight:700">${c.label}</div>
+              <div style="font-size:11px;color:var(--text-lt);font-weight:600">${pct}% of total</div>
+            </div>
+            <div style="font-size:16px;font-weight:900">${fmtMoney(total)}</div>
+          </div>
+          <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-left:52px">
+            <div style="height:100%;background:var(--red);border-radius:3px;width:${pct}%"></div>
+          </div>
+        </div>`;
+      }).join('')||'<p style="text-align:center;color:var(--text-lt);padding:16px">No data yet</p>';
+    openModal('modal-categories');
+  }
+
+  function filterByCat(catId){
+    closeModal('modal-categories');
+    navigate('receipts');
+    state.filterCategory = catId;
+    filterReceipts();
+  }
+
+  function openModal(id){
+    const el=document.getElementById(id);
+    if(el){el.classList.add('open'); el.onclick=e=>{if(e.target===el)closeModal(id);};}
+  }
+
+  function closeModal(id){
+    document.getElementById(id)?.classList.remove('open');
+  }
+
+  let _apikeyThenScan = false;
+  function showApiKey(thenScan=false){
+    _apikeyThenScan = thenScan;
+    document.getElementById('apikey-input').value = OCR.getKey();
+    openModal('modal-apikey');
+  }
+
+  function saveApiKey(){
+    const val = document.getElementById('apikey-input').value.trim();
+    if(!val){ toast('Please paste your API key'); return; }
+    OCR.saveKey(val);
+    closeModal('modal-apikey');
+    toast('API key saved ✅');
+    if(_apikeyThenScan){ _apikeyThenScan=false; startOCR(); }
+  }
+
+  /* ── Escape HTML ── */
+  function esc(s){
+    return String(s||'')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
+  }
+
+  /* ── Init ── */
+  async function init(){
+    await DB.open();
+    await Mapping.load();
+    const rows = await DB.all('receipts');
+    state.receipts = rows;
+    document.getElementById('screen-loading').style.display='none';
+    navigate('home');
+  }
+
+  return {
+    navigate, back,
+    startOCR, resetScan,
+    updateItemName, saveItemMapping, changeQty, deleteItem, addBlankItem, toggleRaw,
+    saveReceipt, discardReview,
+    calNav, calSelectDay,
+    setFilter, setCatFilter, filterByCat, filterReceipts,
+    editReceipt, deleteReceipt,
+    selectPay, addManualItem, setManualItem, removeManualItem, saveManual,
+    showTopShops, showCategories, openModal, closeModal,
+    selectRvPay, toggleDetPhoto, showEditCat, selectCat,
+    showAddCat, saveCustomCat,
+    showApiKey, saveApiKey,
+    init,
+  };
+})();
+
+/* ── Service Worker ── */
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+
+/* ── Boot ── */
+// Use 'load' (not DOMContentLoaded) so the page is fully ready before init.
+// Tesseract itself is loaded lazily on first scan — not at startup.
+if(document.readyState === 'complete'){
+  App.init();
+} else {
+  window.addEventListener('load', () => App.init());
+}
+</script>
+</body>
+</html>
