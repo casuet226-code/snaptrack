@@ -1943,8 +1943,9 @@ function geminiToReceipt(g){
    Robustly extract JSON from Gemini response text.
    Handles: clean JSON, markdown code fences, leading/trailing noise.
 ───────────────────────────────────────────────────────────────── */
-/* Escape literal control characters that appear inside JSON string values.
-   Gemini sometimes emits real newlines/tabs inside strings, making JSON invalid. */
+/* ── JSON repair helpers ──────────────────────────────────────────── */
+
+/* 1. Escape literal control chars inside JSON string values */
 function _sanitizeJSONControls(text){
   let out = '', inStr = false, esc = false;
   for(let i = 0; i < text.length; i++){
@@ -1962,6 +1963,40 @@ function _sanitizeJSONControls(text){
   return out;
 }
 
+/* 2. Close truncated JSON by closing open strings/arrays/objects */
+function _repairTruncatedJSON(text){
+  let inStr = false, esc = false;
+  const stack = [];
+  let lastCompletePos = -1;
+
+  for(let i = 0; i < text.length; i++){
+    const ch = text[i];
+    if(esc){ esc = false; continue; }
+    if(ch === '\\' && inStr){ esc = true; continue; }
+    if(ch === '"'){ inStr = !inStr; continue; }
+    if(inStr) continue;
+    if(ch === '{' || ch === '[') stack.push(ch);
+    else if(ch === '}' || ch === ']'){
+      if(stack.length > 0) stack.pop();
+      if(stack.length === 0) lastCompletePos = i;
+    }
+  }
+
+  // Already valid
+  if(stack.length === 0 && !inStr) return text;
+
+  let result = text;
+  // Close any open string first
+  if(inStr) result += '"';
+  // Close trailing comma or incomplete value
+  result = result.replace(/,\s*$/, '');
+  // Close open structures
+  for(let i = stack.length - 1; i >= 0; i--){
+    result += stack[i] === '{' ? '}' : ']';
+  }
+  return result;
+}
+
 function parseGeminiJSON(rawText){
   if(!rawText) return null;
   console.log('[SnapTrack] Raw Gemini response (first 500 chars):', rawText.slice(0,500));
@@ -1975,48 +2010,55 @@ function parseGeminiJSON(rawText){
   const firstBrace = text.indexOf('{');
   if(firstBrace > 0) text = text.slice(firstBrace);
 
-  // Always sanitize literal control chars inside strings first
+  // Step 1: sanitize literal control chars inside strings
   text = _sanitizeJSONControls(text);
 
   // Attempt 1: direct parse
   try {
-    const parsed = JSON.parse(text);
-    console.log('[SnapTrack] Parsed Gemini JSON OK, keys:', Object.keys(parsed));
-    return parsed;
+    return JSON.parse(text);
   } catch(e1) {
-    console.warn('[SnapTrack] Direct JSON.parse failed:', e1.message);
+    console.warn('[SnapTrack] Attempt 1 failed:', e1.message);
   }
 
-  // Attempt 2: extract outermost {...} block
+  // Attempt 2: fix trailing commas + unquoted keys
+  try {
+    const fixed = text
+      .replace(/,\s*([}\]])/g, '$1')
+      .replace(/([{,]\s*)([a-zA-Z_]\w*)(\s*:)/g, '$1"$2"$3');
+    return JSON.parse(fixed);
+  } catch(e2) {
+    console.warn('[SnapTrack] Attempt 2 failed:', e2.message);
+  }
+
+  // Attempt 3: repair truncated JSON (close open strings/arrays/objects)
+  try {
+    const repaired = _repairTruncatedJSON(text);
+    const fixed = repaired
+      .replace(/,\s*([}\]])/g, '$1')
+      .replace(/([{,]\s*)([a-zA-Z_]\w*)(\s*:)/g, '$1"$2"$3');
+    const parsed = JSON.parse(fixed);
+    console.log('[SnapTrack] Repaired truncated JSON OK');
+    return parsed;
+  } catch(e3) {
+    console.warn('[SnapTrack] Attempt 3 (truncation repair) failed:', e3.message);
+  }
+
+  // Attempt 4: extract outermost complete {...} block
   try {
     const start = text.indexOf('{');
     let depth = 0, end = -1;
     for(let i = start; i < text.length; i++){
       if(text[i]==='{') depth++;
-      else if(text[i]==='}') { depth--; if(depth===0){end=i;break;} }
+      else if(text[i]==='}') { depth--; if(depth===0){ end=i; break; } }
     }
-    if(start>=0 && end>start){
-      const parsed = JSON.parse(text.slice(start, end+1));
-      console.log('[SnapTrack] Extracted JSON block OK');
-      return parsed;
+    if(start >= 0 && end > start){
+      return JSON.parse(text.slice(start, end+1));
     }
-  } catch(e2) {
-    console.warn('[SnapTrack] JSON block extraction failed:', e2.message);
+  } catch(e4) {
+    console.warn('[SnapTrack] Attempt 4 (block extract) failed:', e4.message);
   }
 
-  // Attempt 3: fix common issues — trailing commas, unquoted keys
-  try {
-    const fixed = text
-      .replace(/,\s*([}\]])/g, '$1')        // trailing commas
-      .replace(/([{,]\s*)([a-zA-Z_]\w*)(\s*:)/g, '$1"$2"$3'); // unquoted keys
-    const parsed = JSON.parse(fixed);
-    console.log('[SnapTrack] Repaired JSON OK');
-    return parsed;
-  } catch(e3) {
-    console.warn('[SnapTrack] JSON repair failed:', e3.message);
-  }
-
-  console.error('[SnapTrack] All JSON parse attempts failed. Raw text:', rawText.slice(0,200));
+  console.error('[SnapTrack] All JSON parse attempts failed. Raw:', rawText.slice(0,300));
   return null;
 }
 
@@ -2048,10 +2090,10 @@ function processGeminiResponse(rawText){
 const OCR = (() => {
   // Fallback chain — tried in order until one succeeds
   const MODELS = [
-    'gemini-2.5-flash',
-    'gemini-2.0-flash-lite',
-    'gemini-flash-latest',
     'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
+    'gemini-1.5-flash',
+    'gemini-2.5-flash',
   ];
   const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
@@ -2107,15 +2149,18 @@ CRITICAL rules for items[]:
           { text: PROMPT }
         ]}],
         generationConfig:{ maxOutputTokens:8192, temperature:0,
-          responseMimeType:'application/json',
-          thinkingConfig:{ thinkingBudget:0 } }
+          responseMimeType:'application/json' }
       })
     });
     const data = await resp.json();
     if(!resp.ok){
       const msg = data.error?.message || `API ${resp.status}`;
-      const retryable = resp.status === 503 || resp.status === 429 ||
-        msg.toLowerCase().includes('demand') || msg.toLowerCase().includes('quota');
+      const retryable = resp.status === 503 || resp.status === 429 || resp.status === 500 ||
+        msg.toLowerCase().includes('demand') ||
+        msg.toLowerCase().includes('quota') ||
+        msg.toLowerCase().includes('overloaded') ||
+        msg.toLowerCase().includes('unavailable') ||
+        msg.toLowerCase().includes('limit');
       const err = new Error(msg); err.retryable = retryable; throw err;
     }
     return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -2166,8 +2211,14 @@ CRITICAL rules for items[]:
       } catch(e) {
         lastErr = e;
         console.warn(`Model ${model} failed:`, e.message);
-        // Only stop retrying for auth errors; keep trying other models for everything else
-        const isAuthError = e.message && (e.message.includes('API_KEY') || e.message.includes('PERMISSION') || e.message.includes('401'));
+        // Only stop retrying for auth errors (bad/missing key)
+        const isAuthError = e.message && (
+          e.message.includes('API_KEY') ||
+          e.message.includes('PERMISSION') ||
+          e.message.includes('401') ||
+          e.message.includes('expired') ||
+          e.message.includes('invalid')
+        );
         if(isAuthError) throw e;
         // continue to next model
       }
