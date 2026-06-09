@@ -737,26 +737,33 @@ img{max-width:100%}
       <div style="font-size:14px;font-weight:700" id="ocr-status">Processing image…</div>
       <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill"></div></div>
       <div class="progress-msg" id="ocr-msg">Preparing…</div>
-      <button class="btn btn-secondary btn-block mt-8" id="btn-stop-ocr" onclick="App.stopOCR()">
-        ✕ Stop & Change Photo
-      </button>
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button class="btn btn-secondary" style="flex:1" id="btn-stop-ocr" onclick="App.stopOCR()">✕ Stop</button>
+        <button class="btn btn-secondary" style="flex:1" onclick="App.resetScan()">📷 Choose Photo</button>
+      </div>
     </div>
 
-    <!-- Always-visible escape hatch after photo selected -->
-    <div id="scan-actions" style="display:none;margin-top:12px">
-      <button class="btn btn-secondary btn-block" onclick="App.resetScan()">
-        ↩ Choose Different Photo
-      </button>
-    </div>
+    <div id="scan-actions" style="display:none;margin-top:12px"></div>
   </div>
 </div>
 
 <!-- ── REVIEW ───────────────────────────────────────────────────── -->
 <div id="screen-review" class="screen">
-  <div class="screen-header">
-    <button class="back-btn" onclick="App.navigate('scan')">←</button>
+  <div class="screen-header" style="flex-wrap:wrap;gap:6px">
+    <button class="back-btn" onclick="App.navigate('scan',{keepPhoto:true})">←</button>
     <span class="screen-title">Review Receipt</span>
-    <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="App.saveReceipt()">Save</button>
+    <button class="btn btn-sm btn-primary" id="rv-save-btn" style="margin-left:auto" onclick="App.saveReceipt()">Save</button>
+  </div>
+  <!-- Scan Next / Home — shown after save, right below header -->
+  <div id="rv-saved-actions" style="display:none;gap:8px;padding:8px 16px;background:var(--bg);border-bottom:1px solid var(--border)">
+    <button class="btn btn-primary btn-block" style="flex:1" onclick="App.navigate('scan',{});App.resetScan()">📸 Scan Next</button>
+    <button class="btn btn-secondary btn-block" style="flex:1;margin-top:8px" onclick="App.navigate('home')">🏠 Home</button>
+  </div>
+  <!-- Saved centre overlay -->
+  <div id="rv-saved-overlay" style="display:none;position:fixed;inset:0;z-index:500;pointer-events:none;align-items:center;justify-content:center">
+    <div style="background:rgba(0,0,0,.7);color:#fff;padding:20px 36px;border-radius:20px;font-size:22px;font-weight:900;text-align:center">
+      ✅ Saved!
+    </div>
   </div>
   <div class="review-body">
     <div class="review-meta-card">
@@ -776,6 +783,17 @@ img{max-width:100%}
         <div class="meta-field">
           <span class="meta-key">Time</span>
           <div class="meta-val"><input id="rv-time" type="time"/></div>
+        </div>
+        <!-- Receipt photo preview in review — collapsed by default -->
+        <div class="meta-field" id="rv-photo-field" style="display:none;grid-column:1/-1">
+          <span class="meta-key">Receipt Photo</span>
+          <div class="meta-val" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="App.toggleRvPhoto()">
+            <span id="rv-photo-name" style="font-size:13px;color:var(--text-mid)">receipt.jpg</span>
+            <span id="rv-photo-chevron" style="font-size:18px;color:var(--text-lt)">🔍</span>
+          </div>
+          <div id="rv-photo-box" style="display:none;margin-top:8px;border-radius:10px;overflow:hidden">
+            <img id="rv-photo-img" style="width:100%;object-fit:contain;background:#f5f5f5;display:block"/>
+          </div>
         </div>
         <div class="meta-field">
           <span class="meta-key">Card Last 4</span>
@@ -845,9 +863,15 @@ img{max-width:100%}
     <button class="btn btn-green btn-block" onclick="App.saveReceipt()" style="margin-bottom:12px">
       ✅ Save Receipt
     </button>
-    <button class="btn btn-secondary btn-block" onclick="App.discardReview()">
+    <button class="btn btn-secondary btn-block" onclick="App.discardReview()" style="margin-bottom:12px">
       🗑 Discard
     </button>
+
+    <!-- Scan Next / Home — shown after save at bottom -->
+    <div id="rv-saved-actions-bottom" style="display:none;gap:8px;margin-bottom:16px">
+      <button class="btn btn-primary btn-block" onclick="App.navigate('scan',{});App.resetScan()">📸 Scan Next</button>
+      <button class="btn btn-secondary btn-block" style="margin-top:8px" onclick="App.navigate('home')">🏠 Home</button>
+    </div>
   </div>
 </div>
 
@@ -2128,7 +2152,7 @@ const OCR = (() => {
   /* ── JSON prompt ────────────────────────────────────────────────────
      Ask Gemini to act as a receipt parser and return structured JSON.
      One API call, no markdown, temperature 0.                        */
-  const PROMPT = `You are an expert Hong Kong receipt parser.
+  const PROMPT = `You are an expert Hong Kong receipt parser with deep knowledge of HK retail, supermarkets, and receipt formats.
 Analyse the receipt image and return ONLY a single JSON object — no markdown, no explanation, no code fences.
 
 JSON schema:
@@ -2156,12 +2180,77 @@ JSON schema:
   "mainCategory": "Food & Dining|Transportation|Shopping|Healthcare|Personal Care|Entertainment|Travel|Subscriptions|Other"
 }
 
-CRITICAL rules:
-- items[]: Only REAL purchased products. NEVER include: 總計,合計,小計,Total,Subtotal,Grand Total,Amount Due,Mastercard,Visa,Octopus,八達通,PayMe,AlipayHK,WeChat Pay,Change,找贖, transaction IDs, terminal IDs, batch numbers, member points, barcodes, item counts like "3 種目".
-- discounts[]: Each item has its OWN discounts array. Put the discount on the item it belongs to (the item printed just above the discount line). Examples: "Cashier Redemption", "X% Off", "Buy N get M", negative amount lines. Use positive amount values (e.g. 21.10 not -21.10).
-- If a discount applies to multiple items (e.g. "2 Or More 15%Off"), attach it to the LAST of those items.
-- total: must be the final printed total — never calculate from items.
-- Keep all Traditional Chinese characters exactly as printed.`;
+═══ RECEIPT LAYOUT KNOWLEDGE ═══
+
+HK receipts have several common layouts — recognise which one you are reading:
+
+A) 3-LINE ITEM FORMAT (Citistore, AEON, PARKnSHOP, Wellcome):
+   Line 1: Product name (Chinese/English/mixed)
+   Line 2: Barcode number (8–14 digits, e.g. 4904810913108) — IGNORE, this is NOT the item name
+   Line 3: Qty and price (e.g.  1      12.00  or  2 @84.90  169.80)
+   → Treat all 3 lines as ONE item. Use line 1 as the name. Use line 3 for qty and price.
+
+B) 1-LINE ITEM FORMAT (McDonald's, Café de Coral, small shops):
+   Single line: name + qty + price all on one line.
+
+C) 2-LINE ITEM FORMAT (Watsons, Mannings, Sasa):
+   Line 1: Product name
+   Line 2: qty × unit price = line total (e.g.  1 × 39.90  =  39.90)
+
+═══ ITEM NAME RULES ═══
+
+- Keep EXACTLY as printed: Chinese, English, numbers, symbols all preserved.
+- Mixed-language names are common: "BB BeybladeX Bc", "Pocky 百力滋草莓", "Milo 美祿 1L".
+- Product codes at the START are part of the name: "B09909 日本叮叮清涼舒緩走珠".
+- Dimensions/sizes use × or X: "烘焙紙25厘米X5米", "A4 210×297mm" — X is NOT a multiplier here.
+- Toy/game brands: BeyBlade, Gundam, LEGO, Hot Wheels, etc. — read the full brand+model code.
+
+═══ WHAT TO SKIP ═══
+
+NEVER create an item for any of these — they are NOT products:
+- Totals: 總計, 合計, 小計, Total, Subtotal, Grand Total, Amount Due, Net Amount
+- Payment: Mastercard, Visa, AMEX, UnionPay, EPS, Octopus, 八達通, PayMe, AlipayHK, WeChat Pay, FPS, Cash, 現金, 找贖, Change
+- Store metadata: receipt number, cashier ID, terminal ID, batch no., store code, member ID, loyalty points, tax registration
+- Barcodes: standalone 6–14 digit numbers with no letters
+- Item count lines: "3 種目", "5 items", "共3件"
+- Promotion headers: "Member Offer", "會員優惠", "Special Deal" (unless it has a price = it's a discount)
+
+═══ DISCOUNTS ═══
+
+- Each item has its OWN discounts array.
+- A discount belongs to the item printed JUST ABOVE it.
+- Common discount labels: "Cashier Redemption", "會員折扣", "X% Off", "Buy 2 Get 1", "2 Or More 15%Off", "特價折扣".
+- Negative amount lines (e.g. -21.10) are discounts — store as positive value (21.10).
+- If one discount applies to multiple items, attach to the LAST of those items.
+
+═══ TOTALS & PAYMENT ═══
+
+- total: copy the FINAL printed total exactly — never sum up items yourself.
+- If receipt shows 合計 and 總計, use 總計 (the larger, final one).
+- paymentMethod: detect from keywords — "MASTERCARD"→Mastercard, "VISA"→Visa, "OCTOPUS/八達通"→Octopus, "ALIPAY"→AlipayHK, "WECHAT"→WeChat Pay, "PAYME"→PayMe, "EPS"→EPS, "FPS/轉數快"→FPS, otherwise Cash.
+- cardLast4: last 4 digits of card if shown, else empty string.
+
+═══ DATE & TIME ═══
+
+- Common HK date formats: DD/MM/YYYY, YYYY/MM/DD, YY/MM/DD, DD-MMM-YYYY, DD MMM YYYY.
+- Always convert to YYYY-MM-DD in output.
+- Time is 24h or 12h — convert to HH:MM 24h format.
+
+═══ CATEGORIES ═══
+
+Assign mainCategory using common sense:
+- Food & Dining: restaurants, fast food, cafés, bakeries, supermarket food items
+- Shopping: department stores, toy shops, clothing, electronics, household goods, Citistore, AEON
+- Personal Care: Watsons, Mannings, Sasa, pharmacies, cosmetics, health products
+- Healthcare: clinics, hospitals, medicine, medical supplies
+- Transportation: MTR, bus, taxi, Uber, petrol stations, parking
+- Entertainment: cinemas, KTV, games, theme parks
+- Travel: hotels, airlines, travel agencies
+- Subscriptions: streaming, apps, membership fees
+- Other: anything that doesn't fit above
+
+Keep all Traditional Chinese characters exactly as printed.`;
+
 
   async function _tryModel(model, b64, mime, key){
     const resp = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
@@ -2329,7 +2418,7 @@ const App = (() => {
     // Screen init
     switch(screen){
       case 'home':     renderHome(); break;
-      case 'scan':     initScan(); break;
+      case 'scan':     initScan(data.keepPhoto||false); break;
       case 'review':   renderReview(data.receipt); break;
       case 'calendar': renderCalendar(); break;
       case 'receipts': renderReceiptsList(); break;
@@ -2413,14 +2502,14 @@ const App = (() => {
   /* ══════════════════════════════════════════════════════════════
      SCAN SCREEN
   ══════════════════════════════════════════════════════════════ */
-  function initScan(){
+  function initScan(keepPhoto=false){
     // Wire up file inputs
     const fi  = document.getElementById('file-input');
     const fig = document.getElementById('file-input-gallery');
     fi.onchange  = e => handleFile(e.target.files[0]);
     fig.onchange = e => handleFile(e.target.files[0]);
-    // Reset if no file chosen yet
-    if(!state.scanFile) resetScan();
+    // Reset unless explicitly keeping photo (back from review)
+    if(!keepPhoto) resetScan();
   }
 
   function resetScan(){
@@ -2667,11 +2756,27 @@ const App = (() => {
     if(!r) return;
     state.reviewReceipt = r;
 
-    // Reset save button & remove old action bar
-    const saveBtn = document.querySelector('#screen-review .screen-header .btn-primary');
+    // Reset save button & hide action buttons
+    const saveBtn = document.getElementById('rv-save-btn');
     if(saveBtn){ saveBtn.textContent='Save'; saveBtn.disabled=false; }
-    const oldBar = document.getElementById('rv-saved-actions');
-    if(oldBar) oldBar.remove();
+    const bottomActions = document.getElementById('rv-saved-actions-bottom');
+    if(bottomActions) bottomActions.style.display='none';
+    const overlay = document.getElementById('rv-saved-overlay');
+    if(overlay) overlay.style.display='none';
+
+    // Show receipt photo field (collapsed)
+    const rvPhotoField = document.getElementById('rv-photo-field');
+    const rvPhotoImg   = document.getElementById('rv-photo-img');
+    const rvPhotoBox   = document.getElementById('rv-photo-box');
+    if(r.image_data && rvPhotoField && rvPhotoImg){
+      rvPhotoImg.src = r.image_data;
+      rvPhotoField.style.display = 'block';
+      if(rvPhotoBox) rvPhotoBox.style.display = 'none'; // collapsed
+      const nameEl = document.getElementById('rv-photo-name');
+      if(nameEl) nameEl.textContent = (r.shop_name||'receipt').replace(/\s+/g,'_').toLowerCase()+'.jpg';
+    } else if(rvPhotoField){
+      rvPhotoField.style.display = 'none';
+    }
 
     // Auto-assign category if not set
     if(!r.category) r.category = autoCategory(r.shop_name);
@@ -2822,24 +2927,20 @@ const App = (() => {
 
     await DB.put('receipts',r);
 
-    // Show saved confirmation with action buttons
-    const savedId = r.id;
-    document.querySelector('#screen-review .screen-header .btn-primary').textContent = '✅ Saved!';
-    document.querySelector('#screen-review .screen-header .btn-primary').disabled = true;
+    // Show centre overlay briefly
+    const overlay = document.getElementById('rv-saved-overlay');
+    if(overlay){ overlay.style.display='flex'; setTimeout(()=>{ overlay.style.display='none'; }, 1200); }
 
-    // Inject action bar above review body
-    let actionBar = document.getElementById('rv-saved-actions');
-    if(!actionBar){
-      actionBar = document.createElement('div');
-      actionBar.id = 'rv-saved-actions';
-      actionBar.style.cssText = 'display:flex;gap:10px;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--border)';
-      document.querySelector('#screen-review .review-body').prepend(actionBar);
-    }
-    actionBar.innerHTML = `
-      <button class="btn btn-primary" style="flex:1" onclick="App.navigate('scan');App.resetScan()">📸 Scan Next</button>
-      <button class="btn btn-secondary" style="flex:1" onclick="App.navigate('home')">🏠 Home</button>
-      <button class="btn btn-secondary" style="flex:1" onclick="App.navigate('detail',{id:'${savedId}'})">🧾 View</button>
-    `;
+    // Swap Save button
+    const saveBtn = document.getElementById('rv-save-btn');
+    if(saveBtn){ saveBtn.textContent='✅ Saved'; saveBtn.disabled=true; }
+
+    // Show bottom action buttons
+    const bottomActions = document.getElementById('rv-saved-actions-bottom');
+    if(bottomActions){ bottomActions.style.display='block'; }
+
+    // Scroll to bottom so user sees the buttons
+    document.getElementById('screen-review').scrollTo({top:99999, behavior:'smooth'});
   }
 
   function discardReview(){
@@ -3059,6 +3160,15 @@ const App = (() => {
       renderDetail(r.id);
     });
     openModal('modal-editcat');
+  }
+
+  function toggleRvPhoto(){
+    const box  = document.getElementById('rv-photo-box');
+    const chev = document.getElementById('rv-photo-chevron');
+    if(!box) return;
+    const open = box.style.display === 'none';
+    box.style.display  = open ? 'block' : 'none';
+    if(chev) chev.textContent = open ? '🔼' : '🔍';
   }
 
   function toggleDetPhoto(){
@@ -3370,7 +3480,7 @@ const App = (() => {
     editReceipt, deleteReceipt, deleteReceiptById,
     selectPay, addManualItem, setManualItem, removeManualItem, saveManual,
     showTopShops, showCategories, openModal, closeModal,
-    selectRvPay, toggleDetPhoto, showEditCat, selectCat,
+    selectRvPay, toggleDetPhoto, toggleRvPhoto, showEditCat, selectCat,
     showAddCat, saveCustomCat,
     showApiKey, saveApiKey,
     init,
