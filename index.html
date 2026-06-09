@@ -4,8 +4,9 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <title>SnapTrack HK</title>
-<link rel="manifest" href="manifest.json"/>
+<link rel="manifest" href="data:application/manifest+json,{&quot;name&quot;:&quot;SnapTrack HK&quot;,&quot;short_name&quot;:&quot;SnapTrack&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%23F5F5F7&quot;,&quot;theme_color&quot;:&quot;%23E85D4A&quot;,&quot;icons&quot;:[{&quot;src&quot;:&quot;data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23E85D4A'/><text y='.9em' font-size='80' x='10'>🧾</text></svg>&quot;,&quot;sizes&quot;:&quot;any&quot;,&quot;type&quot;:&quot;image/svg+xml&quot;}]}"/>
 <meta name="theme-color" content="#E85D4A"/>
+<meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
 <meta name="apple-mobile-web-app-title" content="SnapTrack"/>
@@ -2105,8 +2106,9 @@ CRITICAL rules for items[]:
           { inline_data:{ mime_type: mime, data: b64 } },
           { text: PROMPT }
         ]}],
-        generationConfig:{ maxOutputTokens:4096, temperature:0,
-          responseMimeType:'application/json' }
+        generationConfig:{ maxOutputTokens:8192, temperature:0,
+          responseMimeType:'application/json',
+          thinkingConfig:{ thinkingBudget:0 } }
       })
     });
     const data = await resp.json();
