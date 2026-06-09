@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover"/>
 <title>SnapTrack HK</title>
 <link rel="manifest" href="data:application/manifest+json,{&quot;name&quot;:&quot;SnapTrack HK&quot;,&quot;short_name&quot;:&quot;SnapTrack&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%23F5F5F7&quot;,&quot;theme_color&quot;:&quot;%23E85D4A&quot;,&quot;icons&quot;:[{&quot;src&quot;:&quot;data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23E85D4A'/><text y='.9em' font-size='80' x='10'>🧾</text></svg>&quot;,&quot;sizes&quot;:&quot;any&quot;,&quot;type&quot;:&quot;image/svg+xml&quot;}]}"/>
 <meta name="theme-color" content="#E85D4A"/>
@@ -66,7 +66,7 @@ img{max-width:100%}
 .screen{
   display:none;
   min-height:calc(100dvh - var(--nav-h));
-  padding-bottom:calc(var(--nav-h) + 16px);
+  padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
   overflow-y:auto;
   -webkit-overflow-scrolling:touch;
 }
@@ -80,15 +80,15 @@ img{max-width:100%}
   transform:translateX(-50%);
   width:100%;
   max-width:430px;
-  height:var(--nav-h);
+  height:calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
   background:var(--card);
   box-shadow:0 -2px 20px rgba(0,0,0,0.08);
   display:flex;
-  align-items:center;
+  align-items:flex-start;
   justify-content:space-around;
   z-index:200;
   padding:0 4px;
-  padding-bottom:env(safe-area-inset-bottom,0);
+  padding-bottom:env(safe-area-inset-bottom, 0px);
 }
 .nav-btn{
   display:flex;
@@ -295,7 +295,7 @@ img{max-width:100%}
 ═══════════════════════════════════════════════════════════════════ */
 .screen-header{
   display:flex;align-items:center;gap:12px;
-  padding:52px 16px 16px;
+  padding:calc(env(safe-area-inset-top, 0px) + 16px) 16px 12px;
 }
 .back-btn{
   width:40px;height:40px;border-radius:50%;background:var(--card);
@@ -305,17 +305,17 @@ img{max-width:100%}
 .screen-title{font-size:20px;font-weight:900}
 
 #screen-scan{padding:0}
-.scan-body{padding:0 16px 16px}
+.scan-body{padding:0 16px 12px}
 .upload-zone{
   border:2.5px dashed var(--red-mid);border-radius:var(--r);
-  background:var(--red-lt);padding:32px 20px;
+  background:var(--red-lt);padding:20px 16px;
   display:flex;flex-direction:column;align-items:center;
-  gap:12px;cursor:pointer;transition:all .2s;margin-bottom:16px;
+  gap:8px;cursor:pointer;transition:all .2s;margin-bottom:12px;
   text-align:center;
 }
 .upload-zone:active{background:#fdd5d1;border-color:var(--red)}
-.upload-icon{font-size:56px;line-height:1}
-.upload-zone h3{font-size:18px;font-weight:800;color:var(--red)}
+.upload-icon{font-size:40px;line-height:1}
+.upload-zone h3{font-size:16px;font-weight:800;color:var(--red)}
 .upload-zone p{font-size:13px;color:var(--text-mid);font-weight:600}
 .or-divider{
   display:flex;align-items:center;gap:10px;
@@ -330,7 +330,7 @@ img{max-width:100%}
   border-radius:var(--r);overflow:hidden;
   box-shadow:var(--shadow);position:relative;
 }
-#preview-img{width:100%;display:block;max-height:50vh;object-fit:contain;background:#f5f5f5}
+#preview-img{width:100%;display:block;max-height:36vh;object-fit:contain;background:#f5f5f5}
 .preview-actions{
   position:absolute;top:10px;right:10px;
   display:flex;gap:8px;
@@ -340,8 +340,8 @@ img{max-width:100%}
   border-radius:50px;padding:4px 10px;font-size:11px;font-weight:700;
 }
 #ocr-progress{
-  display:none;padding:16px;background:var(--card);
-  border-radius:var(--r-sm);box-shadow:var(--shadow-sm);margin-bottom:16px;
+  display:none;padding:12px 14px;background:var(--card);
+  border-radius:var(--r-sm);box-shadow:var(--shadow-sm);margin-bottom:12px;
 }
 .progress-bar-wrap{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin:10px 0 6px}
 .progress-bar-fill{height:100%;background:var(--red);border-radius:4px;transition:width .3s;width:0%}
@@ -838,6 +838,10 @@ img{max-width:100%}
       <div class="total-row">
         <span>Subtotal</span>
         <span id="rv-subtotal">$0.00</span>
+      </div>
+      <div class="total-row" id="rv-svc-row" style="display:none">
+        <span id="rv-svc-label">Service Charge (10%)</span>
+        <span id="rv-service-charge" style="color:var(--text-mid)">$0.00</span>
       </div>
       <div class="total-row">
         <span>Discounts</span>
@@ -1741,6 +1745,7 @@ function normalizeReceiptData(raw){
   ) || 0;
 
   const subtotal = parseFloat(raw.subtotal ?? raw.subTotal ?? raw.sub_total ?? total) || total;
+  const serviceCharge = parseFloat(raw.serviceCharge ?? raw.service_charge ?? raw.serviceFee ?? raw.service_fee ?? 0) || 0;
 
   // Payment
   const paymentMethod = _normalizePaymentMethod(
@@ -1758,7 +1763,7 @@ function normalizeReceiptData(raw){
 
   return {
     merchant, branch, date, time, currency,
-    total, subtotal, paymentMethod, cardLast4,
+    total, subtotal, serviceCharge, paymentMethod, cardLast4,
     items: rawItems.map(_normalizeItem),
     discounts: rawDiscs.map(_normalizeDiscount).filter(d => d.amount >= 0),
     mainCategory: category,
@@ -1963,9 +1968,11 @@ function geminiToReceipt(g){
     branch:         (g.branch||'').trim(),
     date:           dateStr,
     time:           (g.time||'').trim(),
-    total_amount:   g.total || 0,
-    payment_method: g.paymentMethod || '',
-    payment_amount: g.total || 0,
+    total_amount:    g.total || 0,
+    subtotal_amount: g.subtotal || 0,
+    service_charge:  g.serviceCharge || 0,
+    payment_method:  g.paymentMethod || '',
+    payment_amount:  g.total || 0,
     card_last4:     (g.cardLast4||'').trim(),
     raw_ocr_text:   JSON.stringify(g._raw || g, null, 2),
     items,
@@ -2174,6 +2181,7 @@ JSON schema:
     }
   ],
   "subtotal": 0.00,
+  "serviceCharge": 0.00,
   "total": 0.00,
   "paymentMethod": "Cash|Octopus|Mastercard|Visa|UnionPay|EPS|AlipayHK|WeChat Pay|PayMe|FPS|other",
   "cardLast4": "string or empty",
@@ -2222,6 +2230,18 @@ NEVER create an item for any of these — they are NOT products:
 - Common discount labels: "Cashier Redemption", "會員折扣", "X% Off", "Buy 2 Get 1", "2 Or More 15%Off", "特價折扣".
 - Negative amount lines (e.g. -21.10) are discounts — store as positive value (21.10).
 - If one discount applies to multiple items, attach to the LAST of those items.
+
+═══ SERVICE CHARGE (HK restaurants) ═══
+
+- Most HK sit-down restaurants add a 10% service charge (服務費 / Service Charge) on top of the food subtotal.
+- This is printed as a separate line between subtotal and grand total, e.g.:
+    合計      $128.0
+    服務費(10%)  $12.8
+    總金額    $140.8
+- Put the service charge amount in "serviceCharge" (e.g. 12.8). Do NOT include it as an item.
+- If no service charge is printed, set serviceCharge to 0.
+- subtotal = food items only (before service charge).
+- total = the final grand total (after service charge, after any discounts).
 
 ═══ TOTALS & PAYMENT ═══
 
@@ -2310,63 +2330,61 @@ Keep all Traditional Chinese characters exactly as printed.`;
     const b64   = dataUrl.slice(comma + 1);
     const mime  = dataUrl.slice(5, dataUrl.indexOf(';'));
 
-    /* Parse "Please retry in 19.4s" from Gemini error messages */
-    function _parseRetryDelay(msg){
-      const m = msg && msg.match(/retry in ([\d.]+)s/i);
-      return m ? Math.min(Math.ceil(parseFloat(m[1])) + 1, 30) : null;
+    // Auth error check
+    function _isAuthError(msg){
+      return msg && (
+        msg.includes('API_KEY') || msg.includes('PERMISSION') ||
+        msg.includes('401') || msg.includes('expired') || msg.includes('invalid')
+      );
     }
 
-    /* Wait with countdown shown in progress UI */
-    async function _waitWithCountdown(secs, modelName){
-      for(let t = secs; t > 0; t--){
-        if(_ocrAborted) return; // respect stop button
-        onProgress && onProgress({
-          status: `${modelName} busy — retrying in ${t}s…`,
-          progress: 0.35
-        });
-        await new Promise(r => setTimeout(r, 1000));
+    onProgress && onProgress({ status: 'Scanning…', progress: 0.3 });
+
+    // ── PHASE 1: Race all models simultaneously ──────────────────────
+    // Send to all 4 models at once; use whichever succeeds first.
+    // This avoids waiting for busy models one-by-one.
+    const racePromises = MODELS.map(model =>
+      _tryModel(model, b64, mime, key).then(text => {
+        console.log(`[SnapTrack] ✓ ${model} won the race`);
+        return text;
+      })
+    );
+
+    // Promise.any = first success wins; rejects only if ALL fail
+    try {
+      if(_ocrAborted) throw new Error('aborted');
+      const rawText = await Promise.any(racePromises);
+      onProgress && onProgress({ status: 'Processing…', progress: 0.92 });
+      return rawText;
+    } catch(aggErr) {
+      // All models failed in phase 1 — check if any was an auth error
+      const errors = aggErr.errors || [];
+      for(const e of errors){
+        if(_isAuthError(e.message)) throw e;
       }
+      console.warn('[SnapTrack] All models failed phase 1, entering retry phase');
     }
 
+    // ── PHASE 2: Sequential retry with backoff (fallback) ────────────
+    // Only reached if ALL models were simultaneously busy/rate-limited.
     let lastErr;
     for(let i = 0; i < MODELS.length; i++){
       const model = MODELS[i];
-      // Try each model up to 3 times with auto-wait
-      for(let attempt = 0; attempt < 3; attempt++){
-        if(_ocrAborted) throw new Error('aborted');
-        onProgress && onProgress({
-          status: attempt === 0
-            ? `Scanning${i > 0 ? ` (model ${i+1})` : ''}…`
-            : `Retrying…`,
-          progress: 0.3 + i * 0.1
-        });
-        try {
-          const rawText = await _tryModel(model, b64, mime, key);
-          onProgress && onProgress({status:'Processing…', progress:0.92});
-          return rawText;
-        } catch(e) {
-          lastErr = e;
-          console.warn(`Model ${model} attempt ${attempt+1} failed:`, e.message);
-
-          // Auth error → stop everything
-          const isAuthError = e.message && (
-            e.message.includes('API_KEY') ||
-            e.message.includes('PERMISSION') ||
-            e.message.includes('401') ||
-            e.message.includes('expired') ||
-            e.message.includes('invalid')
-          );
-          if(isAuthError) throw e;
-
-          // Not retryable → try next model immediately
-          if(!e.retryable) break;
-
-          // Retryable (busy/quota) → wait suggested time then retry
-          if(attempt < 2){
-            const wait = _parseRetryDelay(e.message) || (attempt === 0 ? 5 : 15);
-            await _waitWithCountdown(wait, model);
-          }
-        }
+      if(_ocrAborted) throw new Error('aborted');
+      onProgress && onProgress({
+        status: `Retrying (model ${i+1}/${MODELS.length})…`,
+        progress: 0.35 + i * 0.08
+      });
+      // Wait a short stagger between models to avoid hitting same quota
+      if(i > 0) await new Promise(r => setTimeout(r, 3000));
+      try {
+        const rawText = await _tryModel(model, b64, mime, key);
+        onProgress && onProgress({ status: 'Processing…', progress: 0.92 });
+        return rawText;
+      } catch(e) {
+        lastErr = e;
+        if(_isAuthError(e.message)) throw e;
+        console.warn(`[SnapTrack] Retry phase model ${model} failed:`, e.message);
       }
     }
     throw lastErr;
@@ -2664,9 +2682,21 @@ const App = (() => {
       receipt.image_data = c.toDataURL('image/jpeg', 0.75);
     }catch(e){ /* photo save failed silently */ }
 
+    // ── Duplicate detection ─────────────────────────────────────
+    const dup = state.receipts.find(x =>
+      x.id !== receipt.id &&
+      x.total_amount === receipt.total_amount &&
+      (x.date||'') === (receipt.date||'') &&
+      (x.shop_name||'').toLowerCase() === (receipt.shop_name||'').toLowerCase()
+    );
+
     setTimeout(()=>{
       document.getElementById('ocr-progress').style.display='none';
-      navigate('review', {receipt});
+      if(dup){
+        showDuplicateDialog(dup, receipt);
+      } else {
+        navigate('review', {receipt});
+      }
     }, 600);
   }
 
@@ -2828,7 +2858,13 @@ const App = (() => {
           </div>
         </div>
         <div class="item-price-col">
-          <div class="item-price">${fmtMoney(item.final_price)}</div>
+          <div class="item-price">
+            $<input type="number" step="0.1" min="0"
+              style="width:72px;font-size:16px;font-weight:900;border:none;outline:none;background:none;text-align:right;font-family:var(--font);color:var(--text);padding:0"
+              value="${item.final_price.toFixed(2)}"
+              oninput="App.updateItemPrice(${idx},this.value)"
+              onblur="App.updateItemPrice(${idx},this.value,true)"/>
+          </div>
           ${item.discounts.length>0?`<div class="item-orig-price">${fmtMoney(item.original_price)}</div>`:''}
         </div>
       </div>
@@ -2846,14 +2882,27 @@ const App = (() => {
 
   function updateTotals(){
     const r=state.reviewReceipt; if(!r) return;
-    const subtotal  = r.items.reduce((a,i)=>a+(+i.original_price||0),0);
-    const discounts = r.items.reduce((a,i)=>a+i.discounts.reduce((b,d)=>b+(+d.amount||0),0),0);
+    const subtotal   = r.items.reduce((a,i)=>a+(+i.original_price||0),0);
+    const discounts  = r.items.reduce((a,i)=>a+i.discounts.reduce((b,d)=>b+(+d.amount||0),0),0);
+    const svcCharge  = +(r.service_charge || 0);
     // Use the printed total from the receipt as truth; fall back to item math only if not set
     const printedTotal = parseFloat(document.getElementById('rv-total-input').value) || r.total_amount || 0;
-    const displayTotal = printedTotal > 0 ? printedTotal : Math.max(0, subtotal - discounts);
+    const displayTotal = printedTotal > 0 ? printedTotal : Math.max(0, subtotal + svcCharge - discounts);
     document.getElementById('rv-subtotal').textContent        = fmtMoney(subtotal);
     document.getElementById('rv-discounts').textContent       = '-'+fmtMoney(discounts);
     document.getElementById('rv-total-display').textContent   = fmtMoney(displayTotal);
+    // Service charge row — show only if > 0
+    const svcRow = document.getElementById('rv-svc-row');
+    if(svcRow){
+      if(svcCharge > 0){
+        const pct = subtotal > 0 ? Math.round(svcCharge/subtotal*100) : 10;
+        document.getElementById('rv-svc-label').textContent = `Service Charge (${pct}%)`;
+        document.getElementById('rv-service-charge').textContent = fmtMoney(svcCharge);
+        svcRow.style.display = '';
+      } else {
+        svcRow.style.display = 'none';
+      }
+    }
     if(!document.getElementById('rv-total-input').value)
       document.getElementById('rv-total-input').value = displayTotal.toFixed(2);
   }
@@ -2869,6 +2918,15 @@ const App = (() => {
     if(item.user_product_name.trim()!==item.receipt_name.trim()){
       await Mapping.save(item.receipt_name, item.user_product_name);
     }
+  }
+
+  function updateItemPrice(idx, val, commit=false){
+    const item=state.reviewReceipt?.items[idx]; if(!item) return;
+    const price = parseFloat(val);
+    if(isNaN(price)) return;
+    item.final_price    = Math.max(0, +price.toFixed(2));
+    item.original_price = item.final_price; // treat edited price as the base
+    if(commit) updateTotals();
   }
 
   function changeQty(idx,delta){
@@ -2941,6 +2999,66 @@ const App = (() => {
 
     // Scroll to bottom so user sees the buttons
     document.getElementById('screen-review').scrollTo({top:99999, behavior:'smooth'});
+  }
+
+  function showDuplicateDialog(existing, incoming){
+    // Remove any existing dialog
+    const old = document.getElementById('dup-dialog-overlay');
+    if(old) old.remove();
+
+    const savedDate = existing.updated_at
+      ? new Date(existing.updated_at).toLocaleDateString('en-HK',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})
+      : existing.date;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'dup-dialog-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px';
+    overlay.innerHTML = `
+      <div style="background:var(--surface);border-radius:20px;padding:24px;max-width:340px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.4)">
+        <div style="font-size:28px;text-align:center;margin-bottom:8px">🔁</div>
+        <h3 style="margin:0 0 6px;text-align:center;font-size:16px">Possible Duplicate</h3>
+        <p style="margin:0 0 16px;font-size:13px;color:var(--text-secondary);text-align:center">
+          You already have a receipt from<br>
+          <strong>${existing.shop_name}</strong> · $${existing.total_amount.toFixed(2)}<br>
+          <span style="font-size:12px">Saved: ${savedDate}</span>
+        </p>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button class="btn btn-primary" onclick="App._dupAction('update')">
+            ♻️ Replace old record
+          </button>
+          <button class="btn btn-secondary" onclick="App._dupAction('keep')">
+            📋 Keep both records
+          </button>
+          <button class="btn btn-secondary" onclick="App._dupAction('cancel')" style="color:var(--text-secondary)">
+            ✕ Cancel — discard this scan
+          </button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    // Store pending state for action handler
+    state._dupExisting = existing;
+    state._dupIncoming = incoming;
+  }
+
+  function _dupAction(action){
+    const overlay = document.getElementById('dup-dialog-overlay');
+    if(overlay) overlay.remove();
+    const existing = state._dupExisting;
+    const incoming = state._dupIncoming;
+    state._dupExisting = null; state._dupIncoming = null;
+
+    if(action === 'cancel'){
+      toast('Scan discarded');
+      return;
+    }
+    if(action === 'update'){
+      // Replace old record: keep its ID so DB upserts over it
+      incoming.id = existing.id;
+      incoming.scanned_at = existing.scanned_at;
+    }
+    // 'keep' → incoming keeps its own new ID
+    navigate('review', {receipt: incoming});
   }
 
   function discardReview(){
@@ -3473,8 +3591,8 @@ const App = (() => {
   return {
     navigate, back,
     startOCR, resetScan, stopOCR,
-    updateItemName, saveItemMapping, changeQty, deleteItem, addBlankItem, toggleRaw,
-    saveReceipt, discardReview,
+    updateItemName, updateItemPrice, saveItemMapping, changeQty, deleteItem, addBlankItem, toggleRaw,
+    saveReceipt, discardReview, _dupAction,
     calNav, calSelectDay,
     setFilter, setCatFilter, filterByCat, filterReceipts,
     editReceipt, deleteReceipt, deleteReceiptById,
