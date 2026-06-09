@@ -710,37 +710,41 @@ img{max-width:100%}
     <span class="screen-title">Scan Receipt</span>
   </div>
   <div class="scan-body">
-    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+    <!-- Upload zone with both buttons inside -->
+    <div class="upload-zone" id="upload-zone">
       <div class="upload-icon">📷</div>
-      <h3>Tap to take or upload photo</h3>
-      <p>JPEG, PNG, HEIC — receipt will be auto-processed before scanning</p>
+      <h3>Scan a receipt</h3>
+      <div style="display:flex;gap:10px;margin-top:12px;width:100%">
+        <button class="btn btn-primary" style="flex:1" onclick="document.getElementById('file-input').click()">
+          📸 Take Photo
+        </button>
+        <button class="btn btn-secondary" style="flex:1" onclick="document.getElementById('file-input-gallery').click()">
+          🖼️ Gallery
+        </button>
+      </div>
     </div>
     <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none"/>
-
-    <div class="or-divider">or</div>
-    <button class="btn btn-secondary btn-block" onclick="document.getElementById('file-input-gallery').click()">
-      🖼️ Choose from Gallery
-    </button>
     <input type="file" id="file-input-gallery" accept="image/*" style="display:none"/>
 
-    <div id="preview-container" style="margin-top:16px">
+    <div id="preview-container" style="margin-top:16px;display:none">
       <img id="preview-img" alt="Receipt preview"/>
       <div class="preview-actions">
         <span class="preview-badge" id="preview-label">Original</span>
       </div>
     </div>
 
-    <div id="ocr-progress">
+    <div id="ocr-progress" style="display:none">
       <div style="font-size:14px;font-weight:700" id="ocr-status">Processing image…</div>
       <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill"></div></div>
       <div class="progress-msg" id="ocr-msg">Preparing…</div>
+      <button class="btn btn-secondary btn-block mt-8" id="btn-stop-ocr" onclick="App.stopOCR()">
+        ✕ Stop & Change Photo
+      </button>
     </div>
 
+    <!-- Always-visible escape hatch after photo selected -->
     <div id="scan-actions" style="display:none;margin-top:12px">
-      <button class="btn btn-primary btn-block" id="btn-extract" onclick="App.startOCR()">
-        🔍 Extract Receipt Data
-      </button>
-      <button class="btn btn-secondary btn-block mt-8" onclick="App.resetScan()">
+      <button class="btn btn-secondary btn-block" onclick="App.resetScan()">
         ↩ Choose Different Photo
       </button>
     </div>
@@ -1741,14 +1745,25 @@ function normalizeReceiptData(raw){
 function _normalizeDate(s){
   if(!s) return '';
   s = String(s).trim();
-  // Already ISO
+  // Already ISO YYYY-MM-DD
   if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
   // dd/mm/yyyy or dd-mm-yyyy
   let m = s.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
   if(m) return `${m[3]}-${m[2]}-${m[1]}`;
-  // yyyy/mm/dd
+  // yyyy/mm/dd or yyyy-mm-dd (4-digit year)
   m = s.match(/^(\d{4})[\/\-](\d{2})[\/\-](\d{2})$/);
   if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  // yy/mm/dd (HK receipt format e.g. 26/06/01 = 2026-06-01)
+  m = s.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{2})$/);
+  if(m) return `20${m[1]}-${m[2]}-${m[3]}`;
+  // dd mmm yyyy (e.g. 09 Jun 2026)
+  m = s.match(/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$/);
+  if(m){
+    const months={jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',
+                  jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
+    const mo = months[m[2].toLowerCase()];
+    if(mo) return `${m[3]}-${mo}-${String(m[1]).padStart(2,'0')}`;
+  }
   return '';
 }
 
@@ -1764,13 +1779,15 @@ function _normalizeTime(s){
 }
 
 function _normalizeItem(i){
-  if(!i) return { name:'', qty:1, unitPrice:0, lineTotal:0 };
+  if(!i) return { name:'', qty:1, unitPrice:0, lineTotal:0, discounts:[] };
+  const discounts = (i.discounts||[]).map(_normalizeDiscount).filter(d => d.amount > 0);
   return {
     name:      String(i.name || i.productName || i.description || i.item || '').trim(),
     qty:       parseInt(i.qty || i.quantity || i.count || 1) || 1,
     unitPrice: parseFloat(i.unitPrice || i.unit_price || i.price || i.lineTotal || i.line_total || 0) || 0,
     lineTotal: parseFloat(i.lineTotal || i.line_total || i.total || i.amount ||
                           i.unitPrice || i.unit_price || i.price || 0) || 0,
+    discounts, // preserve item-level discounts through the pipeline
   };
 }
 
@@ -1888,26 +1905,30 @@ function calculateReceiptTotals(g){
 function geminiToReceipt(g){
   const items = (g.items||[]).map(i => {
     const price = parseFloat(i.lineTotal ?? i.unitPrice) || 0;
+    // Item-level discounts (new schema: discounts inside each item)
+    const itemDiscs = (i.discounts||[])
+      .filter(d => d.amount > 0)
+      .map(d => ({ label: String(d.label||'Discount').trim(), amount: +d.amount }));
+    const finalPrice = +(price - itemDiscs.reduce((s,d)=>s+d.amount,0)).toFixed(2);
     return {
       id:                uid(),
       receipt_name:      i.name.trim(),
       user_product_name: '',
       qty:               i.qty || 1,
       original_price:    price,
-      discounts:         [],
-      final_price:       price,
+      discounts:         itemDiscs,
+      final_price:       Math.max(0, finalPrice),
       confidence:        i.name.length >= 4 ? 'high' : 'low',
       needs_review:      false,
     };
   });
 
-  // Attach receipt-level discounts from Gemini to the last item so the
-  // review UI (which reads item.discounts[]) can display them.
-  const geminiDiscs = (g.discounts||[]).filter(d => d.amount > 0);
-  if(geminiDiscs.length > 0 && items.length > 0){
+  // Fallback: handle old-schema top-level discounts[] by attaching to last item
+  const topDiscs = (g.discounts||[]).filter(d => d.amount > 0);
+  if(topDiscs.length > 0 && items.length > 0){
     const last = items[items.length - 1];
-    last.discounts = geminiDiscs.map(d => ({ label: d.label, amount: +d.amount }));
-    last.final_price = +(last.original_price - last.discounts.reduce((s,d)=>s+d.amount,0)).toFixed(2);
+    last.discounts = [...last.discounts, ...topDiscs.map(d=>({label:d.label, amount:+d.amount}))];
+    last.final_price = Math.max(0, +(last.original_price - last.discounts.reduce((s,d)=>s+d.amount,0)).toFixed(2));
   }
 
   const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(g.date||'') ? g.date : '';
@@ -2087,12 +2108,15 @@ function processGeminiResponse(rawText){
    Uses gemini-1.5-flash for fast, accurate receipt reading on mobile.
    API key from Google AI Studio (aistudio.google.com/apikey).
 ═══════════════════════════════════════════════════════════════════ */
+/* Shared abort flag — set by App.stopOCR(), read by OCR retry loop */
+let _ocrAborted = false;
+
 const OCR = (() => {
   // Fallback chain — tried in order until one succeeds
   const MODELS = [
     'gemini-2.0-flash',
     'gemini-2.0-flash-lite',
-    'gemini-1.5-flash',
+    'gemini-2.0-flash-exp',
     'gemini-2.5-flash',
   ];
   const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -2119,11 +2143,11 @@ JSON schema:
       "name": "string — product name exactly as printed, keep Traditional Chinese (繁體中文)",
       "qty": 1,
       "unitPrice": 0.00,
-      "lineTotal": 0.00
+      "lineTotal": 0.00,
+      "discounts": [
+        { "label": "string — exact discount label as printed", "amount": 0.00 }
+      ]
     }
-  ],
-  "discounts": [
-    { "label": "string", "amount": 0.00 }
   ],
   "subtotal": 0.00,
   "total": 0.00,
@@ -2132,11 +2156,11 @@ JSON schema:
   "mainCategory": "Food & Dining|Transportation|Shopping|Healthcare|Personal Care|Entertainment|Travel|Subscriptions|Other"
 }
 
-CRITICAL rules for items[]:
-- Only include REAL purchased products the customer bought.
-- NEVER put these in items[]: 總計, 合計, 小計, Total, Subtotal, Grand Total, Net Amount, Amount Due, Mastercard, Visa, Octopus, 八達通, PayMe, AlipayHK, WeChat Pay, Change, 找贖, transaction IDs, terminal IDs, batch numbers, member points, rewards, coupons, barcode numbers, item counts like "3 種目".
-- Discount lines (negative amounts, "Cashier Redemption", "X% Off", "$X/Y", "Buy N get M") go into discounts[], NOT items[].
-- total must be the final printed total — never sum items to calculate it.
+CRITICAL rules:
+- items[]: Only REAL purchased products. NEVER include: 總計,合計,小計,Total,Subtotal,Grand Total,Amount Due,Mastercard,Visa,Octopus,八達通,PayMe,AlipayHK,WeChat Pay,Change,找贖, transaction IDs, terminal IDs, batch numbers, member points, barcodes, item counts like "3 種目".
+- discounts[]: Each item has its OWN discounts array. Put the discount on the item it belongs to (the item printed just above the discount line). Examples: "Cashier Redemption", "X% Off", "Buy N get M", negative amount lines. Use positive amount values (e.g. 21.10 not -21.10).
+- If a discount applies to multiple items (e.g. "2 Or More 15%Off"), attach it to the LAST of those items.
+- total: must be the final printed total — never calculate from items.
 - Keep all Traditional Chinese characters exactly as printed.`;
 
   async function _tryModel(model, b64, mime, key){
@@ -2197,30 +2221,63 @@ CRITICAL rules for items[]:
     const b64   = dataUrl.slice(comma + 1);
     const mime  = dataUrl.slice(5, dataUrl.indexOf(';'));
 
+    /* Parse "Please retry in 19.4s" from Gemini error messages */
+    function _parseRetryDelay(msg){
+      const m = msg && msg.match(/retry in ([\d.]+)s/i);
+      return m ? Math.min(Math.ceil(parseFloat(m[1])) + 1, 30) : null;
+    }
+
+    /* Wait with countdown shown in progress UI */
+    async function _waitWithCountdown(secs, modelName){
+      for(let t = secs; t > 0; t--){
+        if(_ocrAborted) return; // respect stop button
+        onProgress && onProgress({
+          status: `${modelName} busy — retrying in ${t}s…`,
+          progress: 0.35
+        });
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+
     let lastErr;
     for(let i = 0; i < MODELS.length; i++){
       const model = MODELS[i];
-      onProgress && onProgress({
-        status: `Scanning with Gemini${i > 0 ? ` (attempt ${i+1})` : ''}…`,
-        progress: 0.3 + i * 0.1
-      });
-      try {
-        const rawText = await _tryModel(model, b64, mime, key);
-        onProgress && onProgress({status:'Processing…', progress:0.92});
-        return rawText; // raw string — pipeline handles JSON parsing
-      } catch(e) {
-        lastErr = e;
-        console.warn(`Model ${model} failed:`, e.message);
-        // Only stop retrying for auth errors (bad/missing key)
-        const isAuthError = e.message && (
-          e.message.includes('API_KEY') ||
-          e.message.includes('PERMISSION') ||
-          e.message.includes('401') ||
-          e.message.includes('expired') ||
-          e.message.includes('invalid')
-        );
-        if(isAuthError) throw e;
-        // continue to next model
+      // Try each model up to 3 times with auto-wait
+      for(let attempt = 0; attempt < 3; attempt++){
+        if(_ocrAborted) throw new Error('aborted');
+        onProgress && onProgress({
+          status: attempt === 0
+            ? `Scanning${i > 0 ? ` (model ${i+1})` : ''}…`
+            : `Retrying…`,
+          progress: 0.3 + i * 0.1
+        });
+        try {
+          const rawText = await _tryModel(model, b64, mime, key);
+          onProgress && onProgress({status:'Processing…', progress:0.92});
+          return rawText;
+        } catch(e) {
+          lastErr = e;
+          console.warn(`Model ${model} attempt ${attempt+1} failed:`, e.message);
+
+          // Auth error → stop everything
+          const isAuthError = e.message && (
+            e.message.includes('API_KEY') ||
+            e.message.includes('PERMISSION') ||
+            e.message.includes('401') ||
+            e.message.includes('expired') ||
+            e.message.includes('invalid')
+          );
+          if(isAuthError) throw e;
+
+          // Not retryable → try next model immediately
+          if(!e.retryable) break;
+
+          // Retryable (busy/quota) → wait suggested time then retry
+          if(attempt < 2){
+            const wait = _parseRetryDelay(e.message) || (attempt === 0 ? 5 : 15);
+            await _waitWithCountdown(wait, model);
+          }
+        }
       }
     }
     throw lastErr;
@@ -2317,19 +2374,39 @@ const App = (() => {
     list.innerHTML = recent.map(r=>receiptRowHTML(r)).join('');
   }
 
-  function receiptRowHTML(r){
+  function _fmtSavedAt(iso){
+    if(!iso) return '';
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMs = now - d;
+    const diffMins = Math.floor(diffMs/60000);
+    const diffHrs  = Math.floor(diffMs/3600000);
+    const diffDays = Math.floor(diffMs/86400000);
+    if(diffMins < 1)  return 'just now';
+    if(diffMins < 60) return `${diffMins}m ago`;
+    if(diffHrs  < 24) return `${diffHrs}h ago`;
+    if(diffDays < 7)  return `${diffDays}d ago`;
+    return d.toLocaleDateString('en-HK',{day:'numeric',month:'short'});
+  }
+
+  function receiptRowHTML(r, showDel=false){
     const initials = shopInitial(r.shop_name);
     const color    = shopColor(r.shop_name);
     const cat      = catById(r.category);
+    const savedAt  = r.updated_at || r.scanned_at;
+    const savedStr = savedAt ? `· saved ${_fmtSavedAt(savedAt)}` : '';
+    const delBtn   = showDel
+      ? `<button onclick="App.deleteReceiptById('${r.id}',event)" style="background:none;border:none;padding:8px;color:var(--red);font-size:18px;line-height:1;flex-shrink:0" title="Delete">🗑</button>`
+      : `<div class="chevron">›</div>`;
     return `
     <div class="receipt-row" onclick="App.navigate('detail',{id:'${r.id}'})">
       <div class="shop-logo" style="background:${color}">${initials}</div>
       <div class="receipt-info">
         <div class="receipt-shop">${esc(r.shop_name||'Unknown')}</div>
-        <div class="receipt-meta">${cat.icon} ${fmtDate(r.date)} · ${r.items.length} item${r.items.length!==1?'s':''}</div>
+        <div class="receipt-meta">${cat.icon} ${fmtDate(r.date)} · ${r.items.length} item${r.items.length!==1?'s':''} <span style="color:var(--text-lt)">${savedStr}</span></div>
       </div>
       <div class="receipt-amt">${fmtMoney(r.total_amount)}</div>
-      <div class="chevron">›</div>
+      ${delBtn}
     </div>`;
   }
 
@@ -2347,11 +2424,22 @@ const App = (() => {
   }
 
   function resetScan(){
+    _ocrAborted = true; // cancel any in-flight OCR
     state.scanFile=null; state.scanProcessed=null;
     document.getElementById('preview-container').style.display='none';
     document.getElementById('scan-actions').style.display='none';
     document.getElementById('ocr-progress').style.display='none';
     document.getElementById('upload-zone').style.display='flex';
+    document.getElementById('file-input').value='';
+    document.getElementById('file-input-gallery').value='';
+  }
+
+  function stopOCR(){
+    _ocrAborted = true;
+    document.getElementById('ocr-progress').style.display='none';
+    document.getElementById('upload-zone').style.display='flex';
+    document.getElementById('preview-container').style.display='none';
+    state.scanFile = null; state.scanProcessed = null;
     document.getElementById('file-input').value='';
     document.getElementById('file-input-gallery').value='';
   }
@@ -2368,8 +2456,8 @@ const App = (() => {
     prevCont.style.display='block';
     document.getElementById('preview-label').textContent='Original';
 
-    // Show scan actions
-    document.getElementById('scan-actions').style.display='block';
+    // Auto-start OCR immediately
+    startOCR();
   }
 
   async function startOCR(){
@@ -2377,11 +2465,12 @@ const App = (() => {
 
     // Prompt for API key if not set
     if(!OCR.hasKey()){
-      showApiKey(true); // true = show after-save scan will continue
+      showApiKey(true);
       return;
     }
 
-    document.getElementById('scan-actions').style.display='none';
+    _ocrAborted = false;
+    document.getElementById('scan-actions').style.display='block'; // always keep change-photo visible
     document.getElementById('ocr-progress').style.display='block';
 
     const setMsg=(label,pct)=>{
@@ -2427,6 +2516,8 @@ const App = (() => {
       receipt = processGeminiResponse(rawGeminiText);
     }
 
+    if(_ocrAborted) return; // user pressed Stop
+
     if(receipt){
       if(!receipt.date) receipt.date = today();
       if(!receipt.time) receipt.time = nowTime();
@@ -2439,11 +2530,38 @@ const App = (() => {
         total_amount:0, payment_method:'', payment_amount:0, card_last4:'',
         raw_ocr_text:'', items:[],
       };
-      const why = ocrError
-        ? `Error: ${ocrError.message} — enter details manually.`
-        : 'Could not read receipt — please enter details manually.';
-      setMsg('⚠ '+why, 100);
-      toast(why, 5000);
+      // Show retry button for temporary errors
+      const why = ocrError ? ocrError.message : 'Could not read receipt.';
+      const isKeyErr = ocrError && (why.includes('expired') || why.includes('API_KEY') || why.includes('invalid') || why.includes('401'));
+      setMsg('⚠ ' + (isKeyErr ? 'API key invalid — please update your key.' : why), 100);
+
+      // Always show action buttons so user is never stuck
+      document.getElementById('btn-stop-ocr').style.display='none';
+      const prog = document.getElementById('ocr-progress');
+
+      if(isKeyErr){
+        // Key error → show update key button
+        const keyBtn = document.createElement('button');
+        keyBtn.className = 'btn btn-primary btn-block mt-8';
+        keyBtn.textContent = '🔑 Update API Key';
+        keyBtn.onclick = ()=>{ resetScan(); showApiKey(true); };
+        prog.appendChild(keyBtn);
+      } else {
+        // Temp error → retry button
+        const retryBtn = document.createElement('button');
+        retryBtn.className = 'btn btn-primary btn-block mt-8';
+        retryBtn.textContent = '🔄 Retry';
+        retryBtn.onclick = ()=>{ retryBtn.remove(); changeBtn.remove(); startOCR(); };
+        prog.appendChild(retryBtn);
+      }
+      // Always show "change photo" option
+      const changeBtn = document.createElement('button');
+      changeBtn.className = 'btn btn-secondary btn-block mt-8';
+      changeBtn.textContent = '↩ Change Photo';
+      changeBtn.onclick = ()=> resetScan();
+      prog.appendChild(changeBtn);
+
+      return; // stay on scan screen, don't go to review
     }
 
     // Compress and attach photo to receipt
@@ -2548,6 +2666,12 @@ const App = (() => {
     if(!r){ r=state.reviewReceipt; }
     if(!r) return;
     state.reviewReceipt = r;
+
+    // Reset save button & remove old action bar
+    const saveBtn = document.querySelector('#screen-review .screen-header .btn-primary');
+    if(saveBtn){ saveBtn.textContent='Save'; saveBtn.disabled=false; }
+    const oldBar = document.getElementById('rv-saved-actions');
+    if(oldBar) oldBar.remove();
 
     // Auto-assign category if not set
     if(!r.category) r.category = autoCategory(r.shop_name);
@@ -2687,14 +2811,35 @@ const App = (() => {
     // Save all item mappings
     for(let i=0;i<r.items.length;i++) await saveItemMapping(i);
 
+    // Stamp save time
+    r.scanned_at = r.scanned_at || new Date().toISOString();
+    r.updated_at = new Date().toISOString();
+
     // Upsert
     const existing=state.receipts.findIndex(x=>x.id===r.id);
     if(existing>=0) state.receipts[existing]=r;
     else state.receipts.push(r);
 
     await DB.put('receipts',r);
-    toast('Receipt saved! ✅');
-    navigate('detail',{id:r.id});
+
+    // Show saved confirmation with action buttons
+    const savedId = r.id;
+    document.querySelector('#screen-review .screen-header .btn-primary').textContent = '✅ Saved!';
+    document.querySelector('#screen-review .screen-header .btn-primary').disabled = true;
+
+    // Inject action bar above review body
+    let actionBar = document.getElementById('rv-saved-actions');
+    if(!actionBar){
+      actionBar = document.createElement('div');
+      actionBar.id = 'rv-saved-actions';
+      actionBar.style.cssText = 'display:flex;gap:10px;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--border)';
+      document.querySelector('#screen-review .review-body').prepend(actionBar);
+    }
+    actionBar.innerHTML = `
+      <button class="btn btn-primary" style="flex:1" onclick="App.navigate('scan');App.resetScan()">📸 Scan Next</button>
+      <button class="btn btn-secondary" style="flex:1" onclick="App.navigate('home')">🏠 Home</button>
+      <button class="btn btn-secondary" style="flex:1" onclick="App.navigate('detail',{id:'${savedId}'})">🧾 View</button>
+    `;
   }
 
   function discardReview(){
@@ -2819,18 +2964,26 @@ const App = (() => {
       return;
     }
 
-    // Group by month
-    let lastMo='';
+    // Group by Today / Yesterday / date
+    const todayStr     = today();
+    const yesterdayStr = new Date(Date.now()-86400000).toISOString().slice(0,10);
+    function _dateGroupLabel(dateStr){
+      if(!dateStr) return 'Unknown Date';
+      if(dateStr === todayStr)     return 'Today';
+      if(dateStr === yesterdayStr) return 'Yesterday';
+      const [y,m,d] = dateStr.split('-');
+      const months = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return `${+d} ${months[+m]||m} ${y}`;
+    }
+    let lastDate='';
     list.innerHTML=recs.map(r=>{
-      const mo=r.date?r.date.slice(0,7):'';
+      const dateKey = r.date||'';
       let hdr='';
-      if(mo!==lastMo){
-        lastMo=mo;
-        const [y,m]=mo.split('-');
-        const months=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        hdr=`<div class="month-group-hdr">${months[+m]||mo} ${y||''}</div>`;
+      if(dateKey!==lastDate){
+        lastDate=dateKey;
+        hdr=`<div class="month-group-hdr">${_dateGroupLabel(dateKey)}</div>`;
       }
-      return hdr+receiptRowHTML(r);
+      return hdr+receiptRowHTML(r, true);
     }).join('');
   }
 
@@ -2928,6 +3081,15 @@ const App = (() => {
     state.receipts=state.receipts.filter(x=>x.id!==state.editingId);
     toast('Receipt deleted');
     navigate('receipts');
+  }
+
+  async function deleteReceiptById(id, e){
+    e.stopPropagation(); // don't navigate to detail
+    if(!confirm('Delete this receipt?')) return;
+    await DB.del('receipts', id);
+    state.receipts = state.receipts.filter(x=>x.id!==id);
+    toast('Receipt deleted');
+    renderReceiptsList();
   }
 
   /* ══════════════════════════════════════════════════════════════
@@ -3200,12 +3362,12 @@ const App = (() => {
 
   return {
     navigate, back,
-    startOCR, resetScan,
+    startOCR, resetScan, stopOCR,
     updateItemName, saveItemMapping, changeQty, deleteItem, addBlankItem, toggleRaw,
     saveReceipt, discardReview,
     calNav, calSelectDay,
     setFilter, setCatFilter, filterByCat, filterReceipts,
-    editReceipt, deleteReceipt,
+    editReceipt, deleteReceipt, deleteReceiptById,
     selectPay, addManualItem, setManualItem, removeManualItem, saveManual,
     showTopShops, showCategories, openModal, closeModal,
     selectRvPay, toggleDetPhoto, showEditCat, selectCat,
