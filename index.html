@@ -2354,12 +2354,15 @@ Keep all Traditional Chinese characters exactly as printed.`;
     const b64   = dataUrl.slice(comma + 1);
     const mime  = dataUrl.slice(5, dataUrl.indexOf(';'));
 
-    // Auth error check
+    // Fatal error check — stop all retries immediately
     function _isAuthError(msg){
-      return msg && (
-        msg.includes('API_KEY') || msg.includes('PERMISSION') ||
-        msg.includes('401') || msg.includes('expired') || msg.includes('invalid')
-      );
+      if(!msg) return false;
+      const m = msg.toLowerCase();
+      return msg.includes('API_KEY') || msg.includes('PERMISSION') ||
+        msg.includes('401') ||
+        m.includes('expired') || m.includes('invalid key') || m.includes('invalid api') ||
+        m.includes('user location') || m.includes('not supported for the api') ||
+        m.includes('your location') || m.includes('this region');
     }
 
     onProgress && onProgress({ status: 'Scanning…', progress: 0.3 });
@@ -2664,30 +2667,35 @@ const App = (() => {
       // Show retry button for temporary errors
       const why = ocrError ? ocrError.message : 'Could not read receipt.';
       const isKeyErr = ocrError && (why.includes('expired') || why.includes('API_KEY') || why.includes('invalid') || why.includes('401'));
-      setMsg('⚠ ' + (isKeyErr ? 'API key invalid — please update your key.' : why), 100);
+      const isRegionErr = ocrError && (why.toLowerCase().includes('location') || why.toLowerCase().includes('not supported for the api') || why.toLowerCase().includes('region'));
+
+      let userMsg = why;
+      if(isKeyErr)    userMsg = 'API key invalid — please update your key.';
+      if(isRegionErr) userMsg = 'Gemini API not available in your region. Try using a VPN, or check your API key.';
+      setMsg('⚠ ' + userMsg, 100);
 
       // Always show action buttons so user is never stuck
       document.getElementById('btn-stop-ocr').style.display='none';
       const prog = document.getElementById('ocr-progress');
 
+      // Remove any previously appended buttons to prevent duplicates
+      prog.querySelectorAll('.ocr-err-btn').forEach(b=>b.remove());
+
       if(isKeyErr){
-        // Key error → show update key button
         const keyBtn = document.createElement('button');
-        keyBtn.className = 'btn btn-primary btn-block mt-8';
+        keyBtn.className = 'btn btn-primary btn-block mt-8 ocr-err-btn';
         keyBtn.textContent = '🔑 Update API Key';
         keyBtn.onclick = ()=>{ resetScan(); showApiKey(true); };
         prog.appendChild(keyBtn);
       } else {
-        // Temp error → retry button
         const retryBtn = document.createElement('button');
-        retryBtn.className = 'btn btn-primary btn-block mt-8';
+        retryBtn.className = 'btn btn-primary btn-block mt-8 ocr-err-btn';
         retryBtn.textContent = '🔄 Retry';
-        retryBtn.onclick = ()=>{ retryBtn.remove(); changeBtn.remove(); startOCR(); };
+        retryBtn.onclick = startOCR;
         prog.appendChild(retryBtn);
       }
-      // Always show "change photo" option
       const changeBtn = document.createElement('button');
-      changeBtn.className = 'btn btn-secondary btn-block mt-8';
+      changeBtn.className = 'btn btn-secondary btn-block mt-8 ocr-err-btn';
       changeBtn.textContent = '↩ Change Photo';
       changeBtn.onclick = ()=> resetScan();
       prog.appendChild(changeBtn);
@@ -3587,13 +3595,19 @@ const App = (() => {
       await navigator.clipboard.writeText(text);
       toast(`Copied ${receipts.length} receipts to clipboard ✅`);
     } catch(e) {
-      // Fallback: show in a textarea for manual copy
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:80vw;height:40vh;z-index:9999;font-size:12px;padding:8px;border-radius:8px;border:2px solid var(--red)';
-      document.body.appendChild(ta);
-      ta.select();
-      toast('Select all text and copy, then close');
+      // Fallback overlay with close button (same pattern as reportIssue)
+      const div = document.createElement('div');
+      div.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px';
+      div.innerHTML = `
+        <div style="background:#fff;border-radius:16px;padding:16px;width:100%;max-width:380px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <span style="font-weight:800;font-size:15px">📋 Copy this data</span>
+            <button onclick="this.closest('div[style*=fixed]').remove()" style="font-size:20px;background:none;border:none;cursor:pointer;line-height:1">✕</button>
+          </div>
+          <textarea style="width:100%;height:45vh;font-size:11px;padding:8px;border-radius:8px;border:2px solid #E85D4A;font-family:monospace;resize:none">${text.replace(/</g,'&lt;')}</textarea>
+          <button onclick="(async()=>{const ta=this.closest('div[style*=fixed]').querySelector('textarea');ta.focus();ta.setSelectionRange(0,ta.value.length);try{await navigator.clipboard.writeText(ta.value);}catch(e){document.execCommand('copy');}toast('Copied! ✅');this.closest('div[style*=fixed]').remove();})()" style="margin-top:10px;width:100%;padding:12px;background:#E85D4A;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">📋 Select All & Copy</button>
+        </div>`;
+      document.body.appendChild(div);
     }
   }
 
@@ -3616,12 +3630,8 @@ const App = (() => {
       toast(`Imported ${added} receipts${skipped ? `, ${skipped} skipped` : ''} ✅`);
       navigate('home');
     } catch(e) {
-      if(e.message.includes('clipboard') || e.name === 'NotAllowedError'){
-        // Fallback: paste box
-        _showPasteBox();
-      } else {
-        toast('Import failed: ' + e.message);
-      }
+      // Any failure (no permission, bad JSON, no data) → show paste box
+      _showPasteBox();
     }
   }
 
