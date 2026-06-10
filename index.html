@@ -1120,9 +1120,33 @@ img{max-width:100%}
     <button class="btn btn-primary btn-block" onclick="App.saveApiKey()" style="margin-bottom:8px">
       ✅ Save & Continue
     </button>
-    <button class="btn btn-secondary btn-block" onclick="App.closeModal('modal-apikey')">
+    <button class="btn btn-secondary btn-block" onclick="App.closeModal('modal-apikey')" style="margin-bottom:20px">
       Cancel
     </button>
+
+    <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px">
+      <p style="font-size:12px;font-weight:700;color:var(--text-lt);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">📦 Data Backup & Transfer</p>
+      <button class="btn btn-secondary btn-block" onclick="App.exportData()" style="margin-bottom:8px">
+        📋 Copy Data to Clipboard
+      </button>
+      <button class="btn btn-secondary btn-block" onclick="App.importData()" style="margin-bottom:4px">
+        📥 Paste & Import Data
+      </button>
+      <p style="font-size:11px;color:var(--text-lt);font-weight:600;line-height:1.5;margin-top:8px">
+        Copy in Safari → open App → Paste & Import to transfer all receipts.
+      </p>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:12px">
+      <p style="font-size:12px;font-weight:700;color:var(--text-lt);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">🐛 Report an Issue</p>
+      <textarea id="issue-desc" class="input" rows="3" placeholder="Describe what went wrong… (e.g. 元氣壽司 price wrong, Citistore item missing)" style="margin-bottom:8px;resize:none;font-size:13px"></textarea>
+      <button class="btn btn-secondary btn-block" onclick="App.reportIssue()">
+        📋 Copy Issue Report to Clipboard
+      </button>
+      <p style="font-size:11px;color:var(--text-lt);font-weight:600;line-height:1.5;margin-top:8px">
+        Then paste it to Claude to get a fix.
+      </p>
+    </div>
   </div>
 </div>
 
@@ -3556,6 +3580,125 @@ const App = (() => {
   }
 
   let _apikeyThenScan = false;
+  async function exportData(){
+    const receipts = await DB.all('receipts');
+    const text = JSON.stringify({ version:1, exported: new Date().toISOString(), receipts });
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(`Copied ${receipts.length} receipts to clipboard ✅`);
+    } catch(e) {
+      // Fallback: show in a textarea for manual copy
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:80vw;height:40vh;z-index:9999;font-size:12px;padding:8px;border-radius:8px;border:2px solid var(--red)';
+      document.body.appendChild(ta);
+      ta.select();
+      toast('Select all text and copy, then close');
+    }
+  }
+
+  async function importData(){
+    try {
+      const text = await navigator.clipboard.readText();
+      const data = JSON.parse(text);
+      const rows = data.receipts || (Array.isArray(data) ? data : null);
+      if(!rows) throw new Error('No receipt data found in clipboard');
+      let added = 0, skipped = 0;
+      for(const r of rows){
+        if(!r.id) r.id = uid();
+        const exists = state.receipts.find(x => x.id === r.id);
+        if(exists){ skipped++; continue; }
+        await DB.put('receipts', r);
+        state.receipts.push(r);
+        added++;
+      }
+      closeModal('modal-apikey');
+      toast(`Imported ${added} receipts${skipped ? `, ${skipped} skipped` : ''} ✅`);
+      navigate('home');
+    } catch(e) {
+      if(e.message.includes('clipboard') || e.name === 'NotAllowedError'){
+        // Fallback: paste box
+        _showPasteBox();
+      } else {
+        toast('Import failed: ' + e.message);
+      }
+    }
+  }
+
+  function _showPasteBox(){
+    const old = document.getElementById('paste-box-overlay');
+    if(old) old.remove();
+    const el = document.createElement('div');
+    el.id = 'paste-box-overlay';
+    el.style.cssText = 'position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px';
+    el.innerHTML = `
+      <div style="background:var(--surface,#fff);border-radius:20px;padding:20px;width:100%;max-width:360px">
+        <h3 style="margin:0 0 10px;font-size:16px">📥 Paste Data Here</h3>
+        <textarea id="paste-box-ta" style="width:100%;height:140px;border:2px solid var(--border);border-radius:10px;padding:10px;font-size:12px;font-family:monospace" placeholder="Paste your copied data here…"></textarea>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn btn-primary" style="flex:1" onclick="App._confirmPaste()">Import</button>
+          <button class="btn btn-secondary" style="flex:1" onclick="document.getElementById('paste-box-overlay').remove()">Cancel</button>
+        </div>
+      </div>`;
+    document.body.appendChild(el);
+    setTimeout(()=>document.getElementById('paste-box-ta').focus(), 100);
+  }
+
+  async function _confirmPaste(){
+    const text = document.getElementById('paste-box-ta')?.value?.trim();
+    document.getElementById('paste-box-overlay')?.remove();
+    if(!text){ toast('Nothing to import'); return; }
+    try {
+      const data = JSON.parse(text);
+      const rows = data.receipts || (Array.isArray(data) ? data : null);
+      if(!rows) throw new Error('Invalid data');
+      let added = 0, skipped = 0;
+      for(const r of rows){
+        if(!r.id) r.id = uid();
+        const exists = state.receipts.find(x => x.id === r.id);
+        if(exists){ skipped++; continue; }
+        await DB.put('receipts', r);
+        state.receipts.push(r);
+        added++;
+      }
+      closeModal('modal-apikey');
+      toast(`Imported ${added} receipts${skipped ? `, ${skipped} skipped` : ''} ✅`);
+      navigate('home');
+    } catch(e){ toast('Import failed: ' + e.message); }
+  }
+
+  async function reportIssue(){
+    const desc = document.getElementById('issue-desc')?.value?.trim() || '(no description)';
+    const receipts = await DB.all('receipts');
+    const report = [
+      '=== SnapTrack Issue Report ===',
+      `Date: ${new Date().toLocaleString('en-HK')}`,
+      `App version: ${document.title}`,
+      `Receipts stored: ${receipts.length}`,
+      `Screen: ${state.screen}`,
+      `User agent: ${navigator.userAgent}`,
+      '',
+      '--- Issue Description ---',
+      desc,
+      '',
+      '--- Recent Receipt (last saved) ---',
+      receipts.length > 0 ? JSON.stringify(receipts.sort((a,b)=>(b.updated_at||'').localeCompare(a.updated_at||''))[0], null, 2) : 'none',
+    ].join('\n');
+    try {
+      await navigator.clipboard.writeText(report);
+      toast('Issue report copied ✅ — paste it to Claude');
+      document.getElementById('issue-desc').value = '';
+    } catch(e) {
+      // Fallback textarea
+      const ta = document.createElement('textarea');
+      ta.value = report;
+      ta.style.cssText = 'position:fixed;top:10%;left:5%;width:90vw;height:60vh;z-index:9999;font-size:11px;padding:8px;border-radius:8px;border:2px solid var(--red)';
+      document.body.appendChild(ta);
+      ta.select();
+      toast('Select all & copy, then paste to Claude');
+    }
+  }
+
   function showApiKey(thenScan=false){
     _apikeyThenScan = thenScan;
     document.getElementById('apikey-input').value = OCR.getKey();
@@ -3600,7 +3743,7 @@ const App = (() => {
     showTopShops, showCategories, openModal, closeModal,
     selectRvPay, toggleDetPhoto, toggleRvPhoto, showEditCat, selectCat,
     showAddCat, saveCustomCat,
-    showApiKey, saveApiKey,
+    showApiKey, saveApiKey, exportData, importData, _confirmPaste, reportIssue,
     init,
   };
 })();
