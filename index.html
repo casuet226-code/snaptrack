@@ -1140,11 +1140,14 @@ img{max-width:100%}
     <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:12px">
       <p style="font-size:12px;font-weight:700;color:var(--text-lt);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">🐛 Report an Issue</p>
       <textarea id="issue-desc" class="input" rows="3" placeholder="Describe what went wrong… (e.g. 元氣壽司 price wrong, Citistore item missing)" style="margin-bottom:8px;resize:none;font-size:13px"></textarea>
-      <button class="btn btn-secondary btn-block" onclick="App.reportIssue()">
+      <button class="btn btn-secondary btn-block" onclick="App.reportIssue()" style="margin-bottom:8px">
         📋 Copy Issue Report to Clipboard
       </button>
+      <button class="btn btn-secondary btn-block" onclick="App.copyBugLog()">
+        🐞 Copy Auto Bug Log
+      </button>
       <p style="font-size:11px;color:var(--text-lt);font-weight:600;line-height:1.5;margin-top:8px">
-        Then paste it to Claude to get a fix.
+        Bug Log auto-records every error. Paste either to Claude to get a fix.
       </p>
     </div>
   </div>
@@ -2135,6 +2138,7 @@ function parseGeminiJSON(rawText){
   }
 
   console.error('[SnapTrack] All JSON parse attempts failed. Raw:', rawText.slice(0,300));
+  ErrorLog.add('JSON Parse Failed', 'All 4 parse attempts failed', rawText.slice(0,300));
   return null;
 }
 
@@ -2143,12 +2147,14 @@ function processGeminiResponse(rawText){
   const parsed = parseGeminiJSON(rawText);
   if(!parsed){
     console.error('[SnapTrack] processGeminiResponse — could not parse JSON');
+    ErrorLog.add('OCR Parse Error', 'Could not parse Gemini JSON response');
     return null;
   }
 
   const normalized = normalizeReceiptData(parsed);
   if(!normalized){
     console.error('[SnapTrack] processGeminiResponse — normalization failed');
+    ErrorLog.add('Normalization Error', 'Receipt data normalization failed');
     return null;
   }
   console.log('[SnapTrack] Normalized:', { merchant: normalized.merchant, total: normalized.total, itemCount: normalized.items.length });
@@ -2165,6 +2171,39 @@ function processGeminiResponse(rawText){
 ═══════════════════════════════════════════════════════════════════ */
 /* Shared abort flag — set by App.stopOCR(), read by OCR retry loop */
 let _ocrAborted = false;
+
+/* ═══════════════════════════════════════════════════════════════════
+   AUTO ERROR LOG — captures errors automatically for bug reports
+═══════════════════════════════════════════════════════════════════ */
+const ErrorLog = (() => {
+  const MAX = 30;
+  const _log = [];
+
+  function add(type, msg, detail=''){
+    _log.unshift({
+      t: new Date().toLocaleString('en-HK'),
+      type, msg: String(msg).slice(0,300),
+      detail: String(detail).slice(0,500)
+    });
+    if(_log.length > MAX) _log.pop();
+  }
+
+  function getAll(){ return [..._log]; }
+
+  function clear(){ _log.length = 0; }
+
+  // Auto-capture unhandled JS errors
+  window.addEventListener('error', e => {
+    add('JS Error', e.message, `${e.filename}:${e.lineno}`);
+  });
+
+  // Auto-capture unhandled promise rejections
+  window.addEventListener('unhandledrejection', e => {
+    add('Promise Error', e.reason?.message || String(e.reason));
+  });
+
+  return { add, getAll, clear };
+})();
 
 const OCR = (() => {
   // Fallback chain — tried in order until one succeeds
@@ -2390,6 +2429,8 @@ Keep all Traditional Chinese characters exactly as printed.`;
         if(_isAuthError(e.message)) throw e;
       }
       console.warn('[SnapTrack] All models failed phase 1, entering retry phase');
+      const errs = aggErr.errors||[];
+      errs.forEach(e => ErrorLog.add('Model Failed (Phase1)', e.message||'unknown'));;
     }
 
     // ── PHASE 2: Sequential retry with backoff (fallback) ────────────
@@ -2635,6 +2676,7 @@ const App = (() => {
     } catch(e){
       ocrError = e;
       console.warn('OCR error:', e.message);
+      ErrorLog.add('OCR Error', e.message);
       if(e.message === 'no_api_key'){
         document.getElementById('ocr-progress').style.display='none';
         document.getElementById('scan-actions').style.display='block';
@@ -3677,6 +3719,29 @@ const App = (() => {
     } catch(e){ toast('Import failed: ' + e.message); }
   }
 
+  function _buildBugLogText(){
+    const logs = ErrorLog.getAll();
+    if(!logs.length) return '(no errors recorded)';
+    return logs.map(l=>`[${l.t}] ${l.type}: ${l.msg}${l.detail?' | '+l.detail:''}`).join('\n');
+  }
+
+  async function copyBugLog(){
+    const logs = ErrorLog.getAll();
+    const text = [
+      '=== SnapTrack Auto Bug Log ===',
+      `Date: ${new Date().toLocaleString('en-HK')}`,
+      `Errors recorded: ${logs.length}`,
+      '',
+      _buildBugLogText(),
+    ].join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(logs.length ? `Copied ${logs.length} errors ✅` : 'No errors recorded yet');
+    } catch(e) {
+      toast('Could not copy — try Issue Report instead');
+    }
+  }
+
   async function reportIssue(){
     const desc = document.getElementById('issue-desc')?.value?.trim() || '(no description)';
     const receipts = await DB.all('receipts');
@@ -3690,6 +3755,9 @@ const App = (() => {
       '',
       '--- Issue Description ---',
       desc,
+      '',
+      '--- Auto Error Log ---',
+      _buildBugLogText(),
       '',
       '--- Recent Receipt (last saved) ---',
       receipts.length > 0 ? JSON.stringify(receipts.sort((a,b)=>(b.updated_at||'').localeCompare(a.updated_at||''))[0], null, 2) : 'none',
@@ -3759,7 +3827,7 @@ const App = (() => {
     showTopShops, showCategories, openModal, closeModal,
     selectRvPay, toggleDetPhoto, toggleRvPhoto, showEditCat, selectCat,
     showAddCat, saveCustomCat,
-    showApiKey, saveApiKey, exportData, importData, _confirmPaste, reportIssue,
+    showApiKey, saveApiKey, exportData, importData, _confirmPaste, reportIssue, copyBugLog,
     init,
   };
 })();
