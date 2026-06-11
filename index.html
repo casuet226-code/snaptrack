@@ -2222,8 +2222,8 @@ const OCR = (() => {
   /* ── JSON prompt ────────────────────────────────────────────────────
      Ask Gemini to act as a receipt parser and return structured JSON.
      One API call, no markdown, temperature 0.                        */
-  const PROMPT = `You are an expert Hong Kong receipt parser with deep knowledge of HK retail, supermarkets, and receipt formats.
-Analyse the receipt image and return ONLY a single JSON object — no markdown, no explanation, no code fences.
+  const PROMPT = `You are an expert Hong Kong receipt and e-payment parser with deep knowledge of HK retail, supermarkets, and digital payment apps.
+Analyse the image — it may be a physical receipt OR a digital e-payment screenshot — and return ONLY a single JSON object — no markdown, no explanation, no code fences.
 
 JSON schema:
 {
@@ -2268,6 +2268,54 @@ C) 2-LINE ITEM FORMAT (Watsons, Mannings, Sasa):
    Line 1: Product name
    Line 2: qty × unit price = line total (e.g.  1 × 39.90  =  39.90)
 
+═══ E-PAYMENT SCREENSHOTS (PayMe / AlipayHK / WeChat Pay / Octopus / FPS / Bank) ═══
+
+If the image is a digital payment app screenshot (not a paper receipt), follow these rules:
+
+DETECTION — it's an e-payment screenshot if you see:
+- PayMe logo, HSBC PayMe, "已付款" / "Payment Sent" / "Payment Successful"
+- AlipayHK / 支付寶 logo, "付款成功" / "交易成功"
+- WeChat Pay / 微信支付 logo, "支付成功" / "已扣款"
+- Octopus / 八達通 logo, balance shown, "扣除" / "增值"
+- FPS / 轉數快 confirmation, "轉帳成功"
+- Bank app transfer/payment screen (see full list below)
+- Tap & Go / BoC Pay / UnionPay app screens
+
+HK BANKS (traditional):
+  HSBC / 匯豐, Hang Seng / 恒生, Bank of China HK / 中銀香港 / BOCHK,
+  Standard Chartered / 渣打, DBS HK / 星展, Citibank / 花旗,
+  Bank of East Asia / 東亞銀行 / BEA, ICBC HK / 工商銀行,
+  China Construction Bank HK / 建設銀行, Agricultural Bank of China / 農業銀行,
+  CMB Wing Lung / 招商永隆, Dah Sing Bank / 大新銀行,
+  Chong Hing Bank / 創興銀行, OCBC Wing Hang / 華僑永亨,
+  Nanyang Commercial Bank / 南洋商業銀行, Fubon Bank / 富邦銀行,
+  Shanghai Commercial Bank / 上海商業銀行, Public Bank HK,
+  China CITIC Bank / 中信銀行, CMB / 招商銀行
+
+HK VIRTUAL BANKS (數碼銀行):
+  ZA Bank / 眾安銀行, WeLab Bank / 匯立銀行, Mox Bank,
+  Livi Bank, Airstar Bank / 天星銀行, Fusion Bank / 富融銀行,
+  Ant Bank HK / 螞蟻銀行, PingAn OneConnect Bank / 平安壹賬通銀行
+
+FIELD MAPPING for e-payment screenshots:
+- merchant: the payee / shop name / recipient shown (e.g. "McDonald's", "7-Eleven", "陳大文" for P2P)
+- branch: leave empty unless a branch is shown
+- date + time: the transaction date and time shown in the screenshot
+- total: the payment amount (look for "$", "HKD", "港元", "金額", "Amount")
+- paymentMethod: match to the app — PayMe→PayMe, AlipayHK→AlipayHK, WeChat Pay→WeChat Pay, Octopus→Octopus, FPS→FPS
+- items: for e-payment, create ONE item representing the payment:
+  - name: the merchant/payee name or payment description shown (e.g. "McDonald's", "網上購物", "P2P Transfer to 陳大文")
+  - qty: 1
+  - unitPrice and lineTotal: same as the total amount
+- mainCategory: infer from the merchant (e.g. McDonald's→Food & Dining, 7-Eleven→Shopping, person's name→Other)
+
+COMMON E-PAYMENT LAYOUTS:
+PayMe: Shows "HK$XX.XX" prominently, merchant name below, date/time, transaction ref
+AlipayHK: Shows "HKD XX.XX" or "港幣 XX.XX", 商戶名稱, 交易時間, 訂單號
+WeChat Pay: Shows "¥" or "HKD", 收款方, 付款時間, 交易單號 (ignore ¥ if also shows HKD)
+Octopus: Shows "扣除 $XX.X", merchant, date/time, 餘額
+FPS: Shows transfer amount, 收款人, 日期時間, 參考編號
+
 ═══ ITEM NAME RULES ═══
 
 - Keep EXACTLY as printed: Chinese, English, numbers, symbols all preserved.
@@ -2310,7 +2358,7 @@ NEVER create an item for any of these — they are NOT products:
 
 - total: copy the FINAL printed total exactly — never sum up items yourself.
 - If receipt shows 合計 and 總計, use 總計 (the larger, final one).
-- paymentMethod: detect from keywords — "MASTERCARD"→Mastercard, "VISA"→Visa, "OCTOPUS/八達通"→Octopus, "ALIPAY"→AlipayHK, "WECHAT"→WeChat Pay, "PAYME"→PayMe, "EPS"→EPS, "FPS/轉數快"→FPS, otherwise Cash.
+- paymentMethod: detect from keywords — "MASTERCARD"→Mastercard, "VISA"→Visa, "OCTOPUS/八達通"→Octopus, "ALIPAY/支付寶"→AlipayHK, "WECHAT/微信"→WeChat Pay, "PAYME"→PayMe, "EPS"→EPS, "FPS/轉數快"→FPS, "TAP & GO/拍住賞"→other, "BOC PAY"→other, otherwise Cash. For e-payment screenshots, the app shown IS the payment method.
 - cardLast4: last 4 digits of card if shown, else empty string.
 
 ═══ DATE & TIME ═══
@@ -2330,7 +2378,7 @@ Assign mainCategory using common sense:
 - Entertainment: cinemas, KTV, games, theme parks
 - Travel: hotels, airlines, travel agencies
 - Subscriptions: streaming, apps, membership fees
-- Other: anything that doesn't fit above
+- Other: P2P transfers to individuals, anything that doesn't fit above
 
 Keep all Traditional Chinese characters exactly as printed.`;
 
