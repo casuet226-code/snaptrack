@@ -2311,10 +2311,21 @@ FIELD MAPPING for e-payment screenshots:
 
 COMMON E-PAYMENT LAYOUTS:
 PayMe: Shows "HK$XX.XX" prominently, merchant name below, date/time, transaction ref
-AlipayHK: Shows "HKD XX.XX" or "港幣 XX.XX", 商戶名稱, 交易時間, 訂單號
+AlipayHK / Taobao: Shows "港幣 XX.XX" or "HKD XX.XX", merchant, date/time. May show payment breakdown:
+  - "錢包結餘 -港幣 XX.XX" = amount paid from wallet (ignore this line)
+  - "折扣優惠券 -港幣 XX.XX" = DISCOUNT — put this in the item's discounts array
+  - "紅包 -港幣 XX.XX" = DISCOUNT — put this in the item's discounts array
+  - total = the big prominent amount shown at top
 WeChat Pay: Shows "¥" or "HKD", 收款方, 付款時間, 交易單號 (ignore ¥ if also shows HKD)
+  - "代金券 -XX" / "優惠券" / "紅包" = DISCOUNT
 Octopus: Shows "扣除 $XX.X", merchant, date/time, 餘額
 FPS: Shows transfer amount, 收款人, 日期時間, 參考編號
+
+E-PAYMENT DISCOUNT RULES:
+- Lines starting with 折扣, 優惠券, 紅包, 代金券, Coupon, Voucher, Cashback, Rebate = discounts
+- Put them in the single item's discounts[] array with positive amount
+- The item's lineTotal = the TOTAL amount paid (before discounts); final_price = lineTotal - discounts
+- "錢包結餘", "餘額", "Balance" lines = just the payment method breakdown — NOT a discount, skip them
 
 ═══ ITEM NAME RULES ═══
 
