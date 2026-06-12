@@ -317,6 +317,14 @@ img{max-width:100%}
 .upload-icon{font-size:40px;line-height:1}
 .upload-zone h3{font-size:16px;font-weight:800;color:var(--red)}
 .upload-zone p{font-size:13px;color:var(--text-mid);font-weight:600}
+/* Toggle switch */
+.toggle-switch{position:relative;display:inline-block;width:44px;height:26px;cursor:pointer;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0}
+.toggle-track{position:absolute;inset:0;background:var(--border);border-radius:13px;transition:.2s}
+.toggle-track::before{content:'';position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.toggle-switch input:checked + .toggle-track{background:var(--green)}
+.toggle-switch input:checked + .toggle-track::before{transform:translateX(18px)}
+
 .or-divider{
   display:flex;align-items:center;gap:10px;
   color:var(--text-lt);font-size:13px;font-weight:600;margin-bottom:16px;
@@ -861,6 +869,72 @@ img{max-width:100%}
       <div style="flex:1">
         <label class="input-label">Amount Paid</label>
         <input class="input" id="rv-paid" type="number" step="0.1" placeholder="0.00"/>
+      </div>
+    </div>
+
+    <!-- ── Split Bill ─────────────────────────────────────────── -->
+    <div class="review-meta-card" id="rv-split-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-size:15px;font-weight:800">🤝 Split Bill</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="rv-split-toggle" onchange="App.toggleSplit()"/>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div id="rv-split-body" style="display:none">
+        <div style="font-size:13px;color:var(--text-mid);font-weight:600;margin-bottom:10px">
+          掃完單之後，輸入幾多人夾錢，系統自動計你的份額。
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <label class="input-label" style="margin:0;white-space:nowrap">夾錢人數（包括你）</label>
+          <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+            <button class="qty-btn" onclick="App.changeSplitPeople(-1)">−</button>
+            <span id="rv-split-count" style="font-size:18px;font-weight:900;min-width:24px;text-align:center">2</span>
+            <button class="qty-btn" onclick="App.changeSplitPeople(1)">+</button>
+          </div>
+        </div>
+        <div style="background:var(--green-lt);border-radius:var(--r-sm);padding:12px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:13px;font-weight:700;color:var(--green)">你的份額</span>
+          <span id="rv-split-share" style="font-size:20px;font-weight:900;color:var(--green)">$0.00</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Installment Plan ────────────────────────────────── -->
+    <div class="review-meta-card" id="rv-inst-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-size:15px;font-weight:800">📅 分期付款</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="rv-inst-toggle" onchange="App.toggleInstallment()"/>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div id="rv-inst-body" style="display:none">
+        <div style="font-size:13px;color:var(--text-mid);font-weight:600;margin-bottom:10px">
+          設定每月供款金額及期數，系統幫你追蹤剩餘供款。
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div>
+            <label class="input-label">每月供款 ($)</label>
+            <input class="input" id="rv-inst-monthly" type="number" step="0.1" placeholder="0.00"
+              oninput="App.updateInstallment()"/>
+          </div>
+          <div>
+            <label class="input-label">供款期數（月）</label>
+            <input class="input" id="rv-inst-months" type="number" step="1" min="1" placeholder="12"
+              oninput="App.updateInstallment()"/>
+          </div>
+        </div>
+        <div id="rv-inst-summary" style="background:var(--blue-lt);border-radius:var(--r-sm);padding:12px;display:none">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:12px;font-weight:700;color:var(--blue)">總供款金額</span>
+            <span id="rv-inst-total" style="font-size:14px;font-weight:900;color:var(--blue)">$0.00</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="font-size:12px;font-weight:700;color:var(--blue)">完成日期</span>
+            <span id="rv-inst-enddate" style="font-size:14px;font-weight:900;color:var(--blue)">—</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -2965,6 +3039,31 @@ const App = (() => {
 
     renderItems();
     updateTotals();
+
+    // Reset split bill UI
+    const splitToggle = document.getElementById('rv-split-toggle');
+    if(splitToggle){
+      const hasSplit = r.split?.enabled;
+      splitToggle.checked = !!hasSplit;
+      document.getElementById('rv-split-body').style.display = hasSplit ? '' : 'none';
+      if(hasSplit){
+        document.getElementById('rv-split-count').textContent = r.split.people||2;
+      } else {
+        document.getElementById('rv-split-count').textContent = '2';
+      }
+      updateSplit();
+    }
+
+    // Reset installment UI
+    const instToggle = document.getElementById('rv-inst-toggle');
+    if(instToggle){
+      const hasInst = r.installment?.enabled;
+      instToggle.checked = !!hasInst;
+      document.getElementById('rv-inst-body').style.display = hasInst ? '' : 'none';
+      document.getElementById('rv-inst-monthly').value = r.installment?.monthly||'';
+      document.getElementById('rv-inst-months').value  = r.installment?.months||'';
+      if(hasInst) updateInstallment();
+    }
   }
 
   function renderItems(){
@@ -3038,6 +3137,8 @@ const App = (() => {
     }
     if(!document.getElementById('rv-total-input').value)
       document.getElementById('rv-total-input').value = displayTotal.toFixed(2);
+    // Keep split share in sync
+    if(document.getElementById('rv-split-toggle')?.checked) updateSplit();
   }
 
   function updateItemName(idx,val){
@@ -3092,6 +3193,51 @@ const App = (() => {
     box.style.display=box.style.display==='none'?'block':'none';
   }
 
+  /* ── Split Bill ─────────────────────────────────────────────── */
+  function toggleSplit(){
+    const on = document.getElementById('rv-split-toggle').checked;
+    document.getElementById('rv-split-body').style.display = on ? '' : 'none';
+    if(on) updateSplit();
+  }
+
+  function changeSplitPeople(delta){
+    const el = document.getElementById('rv-split-count');
+    const n = Math.max(2, (+el.textContent||2) + delta);
+    el.textContent = n;
+    updateSplit();
+  }
+
+  function updateSplit(){
+    const r = state.reviewReceipt; if(!r) return;
+    const total = parseFloat(document.getElementById('rv-total-input').value) || r.total_amount || 0;
+    const people = +(document.getElementById('rv-split-count').textContent)||2;
+    const share = +(total / people).toFixed(2);
+    document.getElementById('rv-split-share').textContent = fmtMoney(share);
+  }
+
+  /* ── Installment Plan ───────────────────────────────────────── */
+  function toggleInstallment(){
+    const on = document.getElementById('rv-inst-toggle').checked;
+    document.getElementById('rv-inst-body').style.display = on ? '' : 'none';
+    if(on) updateInstallment();
+  }
+
+  function updateInstallment(){
+    const monthly = parseFloat(document.getElementById('rv-inst-monthly').value)||0;
+    const months  = parseInt(document.getElementById('rv-inst-months').value)||0;
+    const summary = document.getElementById('rv-inst-summary');
+    if(monthly > 0 && months > 0){
+      const total = +(monthly * months).toFixed(2);
+      const end   = new Date();
+      end.setMonth(end.getMonth() + months);
+      document.getElementById('rv-inst-total').textContent   = fmtMoney(total);
+      document.getElementById('rv-inst-enddate').textContent = end.toLocaleDateString('en-HK',{year:'numeric',month:'short'});
+      summary.style.display = '';
+    } else {
+      summary.style.display = 'none';
+    }
+  }
+
   async function saveReceipt(){
     const r=state.reviewReceipt; if(!r) return;
     r.shop_name    = document.getElementById('rv-shop').value.trim()||'Unknown';
@@ -3102,6 +3248,27 @@ const App = (() => {
     r.card_last4   = document.getElementById('rv-card4').value.trim();
     r.total_amount = parseFloat(document.getElementById('rv-total-input').value)||0;
     r.payment_amount=parseFloat(document.getElementById('rv-paid').value)||r.total_amount;
+
+    // Split bill
+    const splitOn = document.getElementById('rv-split-toggle')?.checked;
+    if(splitOn){
+      const people = +(document.getElementById('rv-split-count').textContent)||2;
+      r.split = { enabled:true, people, my_share: +(r.total_amount/people).toFixed(2) };
+      r.my_amount = r.split.my_share;
+    } else {
+      r.split = null; r.my_amount = r.total_amount;
+    }
+
+    // Installment plan
+    const instOn = document.getElementById('rv-inst-toggle')?.checked;
+    if(instOn){
+      const monthly = parseFloat(document.getElementById('rv-inst-monthly').value)||0;
+      const months  = parseInt(document.getElementById('rv-inst-months').value)||0;
+      r.installment = { enabled:true, monthly, months, paid_months:0,
+        start_date: new Date().toISOString().slice(0,7) };
+    } else {
+      r.installment = null;
+    }
     if(!r.category) r.category = autoCategory(r.shop_name);
 
     // Save all item mappings
@@ -3878,6 +4045,8 @@ const App = (() => {
     navigate, back,
     startOCR, resetScan, stopOCR,
     updateItemName, updateItemPrice, saveItemMapping, changeQty, deleteItem, addBlankItem, toggleRaw,
+    toggleSplit, changeSplitPeople, updateSplit,
+    toggleInstallment, updateInstallment,
     saveReceipt, discardReview, _dupAction,
     calNav, calSelectDay,
     setFilter, setCatFilter, filterByCat, filterReceipts,
