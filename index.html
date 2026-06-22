@@ -1130,6 +1130,42 @@ img{max-width:100%}
   <div style="padding:0 16px" id="summary-body"></div>
 </div>
 
+<!-- ── OCTOPUS BATCH IMPORT ──────────────────────────────────────── -->
+<div id="screen-octopus" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="App.navigate('home')">←</button>
+    <span class="screen-title">🟡 八達通記錄</span>
+  </div>
+  <div style="padding:16px">
+    <div style="background:var(--yellow-lt);border-radius:var(--r);padding:16px;margin-bottom:16px;font-size:14px;color:var(--text-mid)">
+      截圖八達通 app 的交易紀錄頁面，可以上傳多張。系統自動提取每筆交易並批量匯入。
+    </div>
+    <div id="oct-upload-zone" class="upload-zone" style="margin-bottom:16px">
+      <div class="upload-icon">🟡</div>
+      <h3>上傳八達通截圖</h3>
+      <div style="display:flex;gap:10px;margin-top:12px;width:100%">
+        <button class="btn btn-primary" style="flex:1" onclick="document.getElementById('oct-file-cam').click()">📸 拍照</button>
+        <button class="btn btn-secondary" style="flex:1" onclick="document.getElementById('oct-file-gallery').click()">🖼️ 相簿</button>
+      </div>
+    </div>
+    <input type="file" id="oct-file-cam" accept="image/*" capture="environment" multiple style="display:none" onchange="App.octAddFiles(this.files)"/>
+    <input type="file" id="oct-file-gallery" accept="image/*" multiple style="display:none" onchange="App.octAddFiles(this.files)"/>
+
+    <div id="oct-thumbs" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
+    <div id="oct-progress" style="display:none;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:700" id="oct-status">處理中…</div>
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" id="oct-fill" style="width:0%"></div></div>
+    </div>
+
+    <div id="oct-results" style="display:none">
+      <div style="font-weight:800;font-size:16px;margin-bottom:12px" id="oct-results-title"></div>
+      <div id="oct-txn-list"></div>
+      <button class="btn btn-primary btn-block" style="margin-top:16px" onclick="App.octSaveAll()">✅ 全部儲存</button>
+      <button class="btn btn-secondary btn-block" style="margin-top:8px" onclick="App.octReset()">↩️ 重新上傳</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── BOTTOM NAV ────────────────────────────────────────────────── -->
 <nav id="bottom-nav">
   <button class="nav-btn active" id="nav-home" onclick="App.navigate('home')">
@@ -2296,11 +2332,39 @@ const OCR = (() => {
   /* ── JSON prompt ────────────────────────────────────────────────────
      Ask Gemini to act as a receipt parser and return structured JSON.
      One API call, no markdown, temperature 0.                        */
-  const PROMPT = `You are an expert Hong Kong receipt and e-payment parser with deep knowledge of HK retail, supermarkets, and digital payment apps.
-Analyse the image — it may be a physical receipt OR a digital e-payment screenshot — and return ONLY a single JSON object — no markdown, no explanation, no code fences.
+  const PROMPT = `You are an expert Hong Kong receipt, e-payment, and bank/card statement parser.
 
-JSON schema:
+FIRST — decide what type of image this is:
+A) TRANSACTION LIST — multiple transactions shown (Octopus 交易紀錄, bank statement, credit card statement, any app showing a list of payments with dates and amounts)
+B) SINGLE RECEIPT or SINGLE PAYMENT — one transaction only (paper receipt, single PayMe/AlipayHK/WeChat Pay confirmation screen)
+
+════ IF TYPE A (TRANSACTION LIST) ════
+Return ONLY this JSON — no markdown, no explanation:
 {
+  "type": "transaction_list",
+  "source": "Octopus|HSBC|Hang Seng|Citi|Bank of China|Credit Card|Bank|other",
+  "transactions": [
+    {
+      "merchant": "merchant name exactly as shown (keep Traditional Chinese)",
+      "date": "YYYY-MM-DD",
+      "time": "HH:MM",
+      "amount": 0.00,
+      "category": "Transportation|Food & Dining|Shopping|Personal Care|Healthcare|Entertainment|Travel|Subscriptions|Other"
+    }
+  ]
+}
+Rules for transaction list:
+- Include ONLY debit/spending transactions (negative amounts, shown in red or with minus sign)
+- SKIP top-ups, credits, refunds (positive amounts, green, e.g. 八達通卡有限公司 +500, salary, transfer in)
+- Return amounts as POSITIVE numbers (e.g. -22.1 shown → return 22.1)
+- Category: Transportation=港鐵/MTR/巴士/bus/輕鐵/天祥旅遊/taxi/ferry; Food=restaurants/bakery/fast food/café; Shopping=supermarket/retail/convenience store/Apple Services; else Other
+- If date is missing for some rows, infer from context or use the page header date
+- Sort does not matter
+
+════ IF TYPE B (SINGLE RECEIPT / SINGLE PAYMENT) ════
+Return ONLY this JSON — no markdown, no explanation:
+{
+  "type": "receipt",
   "merchant": "string — shop name exactly as printed",
   "branch": "string — branch / address line, or empty string",
   "date": "YYYY-MM-DD or empty string",
@@ -2466,6 +2530,7 @@ Assign mainCategory using common sense:
 - Other: P2P transfers to individuals, anything that doesn't fit above
 
 Keep all Traditional Chinese characters exactly as printed.`;
+
 
 
   async function _tryModel(model, b64, mime, key){
@@ -2644,6 +2709,7 @@ const App = (() => {
       case 'detail':   renderDetail(data.id); break;
       case 'add':      initAdd(); break;
       case 'summary':  renderSummary(); break;
+      case 'octopus':  octReset(); break;
     }
   }
 
@@ -2818,7 +2884,27 @@ const App = (() => {
       }
     }
 
-    // ── Step 3: Full pipeline: parse → normalize → validate → totals ──
+    // ── Step 3: Check if transaction list (Octopus/bank statement) ──
+    if(rawGeminiText){
+      try{
+        const parsed = JSON.parse(rawGeminiText);
+        if(parsed && parsed.type === 'transaction_list' && Array.isArray(parsed.transactions)){
+          setMsg('找到交易清單 ✅', 100);
+          _octTxns = parsed.transactions.filter(t=> +t.amount > 0);
+          _octTxns.sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+          setTimeout(()=>{
+            document.getElementById('ocr-progress').style.display='none';
+            navigate('octopus');
+            document.getElementById('oct-results-title').textContent=`找到 ${_octTxns.length} 筆交易 — 可以 edit 或刪除`;
+            document.getElementById('oct-results').style.display='';
+            _renderOctResults();
+          }, 500);
+          return;
+        }
+      }catch(e){ /* not JSON or not transaction_list, continue normal flow */ }
+    }
+
+    // ── Step 4: Full pipeline: parse → normalize → validate → totals ──
     let receipt;
     if(rawGeminiText){
       setMsg('Processing receipt…', 94);
@@ -4009,6 +4095,150 @@ const App = (() => {
     }
   }
 
+  /* ══════════════════════════════════════════════════════════════
+     OCTOPUS BATCH IMPORT
+  ══════════════════════════════════════════════════════════════ */
+  let _octFiles = [];
+  let _octTxns  = [];
+
+  function octAddFiles(files){
+    Array.from(files).forEach(f=>{
+      const url = URL.createObjectURL(f);
+      _octFiles.push({file:f, url});
+    });
+    _renderOctThumbs();
+    if(_octFiles.length) _octProcess();
+  }
+
+  function _renderOctThumbs(){
+    const el = document.getElementById('oct-thumbs');
+    if(!el) return;
+    el.innerHTML = _octFiles.map((f,i)=>`
+      <div style="position:relative;width:72px;height:72px">
+        <img src="${f.url}" style="width:72px;height:72px;object-fit:cover;border-radius:10px;border:2px solid var(--border)"/>
+        <button onclick="App.octRemoveFile(${i})" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;line-height:1">✕</button>
+      </div>`).join('');
+  }
+
+  function octRemoveFile(i){
+    _octFiles.splice(i,1);
+    _renderOctThumbs();
+  }
+
+  async function _octProcess(){
+    if(!OCR.hasKey()){ App.showApiKey(false); return; }
+    const prog = document.getElementById('oct-progress');
+    const fill = document.getElementById('oct-fill');
+    const status = document.getElementById('oct-status');
+    const results = document.getElementById('oct-results');
+    if(prog) prog.style.display='';
+    if(results) results.style.display='none';
+    _octTxns = [];
+
+    for(let i=0;i<_octFiles.length;i++){
+      if(status) status.textContent = `處理第 ${i+1}/${_octFiles.length} 張截圖…`;
+      if(fill) fill.style.width = `${Math.round((i/_octFiles.length)*100)}%`;
+      try{
+        const rawText = await OCR.recognize(_octFiles[i].url, null);
+        const parsed = JSON.parse(rawText);
+        if(parsed?.type === 'transaction_list' && Array.isArray(parsed.transactions)){
+          _octTxns.push(...parsed.transactions.filter(t=> +t.amount > 0));
+        }
+      }catch(e){ ErrorLog.add('Octopus OCR',e.message); }
+    }
+
+    if(fill) fill.style.width='100%';
+    if(status) status.textContent=`完成！找到 ${_octTxns.length} 筆交易`;
+
+    // deduplicate by merchant+date+time+amount
+    const seen = new Set();
+    _octTxns = _octTxns.filter(t=>{
+      const k = `${t.merchant}|${t.date}|${t.time}|${t.amount}`;
+      if(seen.has(k)) return false;
+      seen.add(k); return true;
+    });
+    // sort newest first
+    _octTxns.sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+
+    _renderOctResults();
+    if(prog) prog.style.display='none';
+    if(results) results.style.display='';
+  }
+
+  function _renderOctResults(){
+    const title = document.getElementById('oct-results-title');
+    const list  = document.getElementById('oct-txn-list');
+    if(title) title.textContent = `找到 ${_octTxns.length} 筆交易 — 可以 edit 或刪除`;
+    if(!list) return;
+    const catIcon = c => c==='Transportation'?'🚌':c==='Food & Dining'?'🍽️':c==='Shopping'?'🛍️':'📋';
+    list.innerHTML = _octTxns.map((t,i)=>`
+      <div id="oct-txn-${i}" style="background:var(--card);border-radius:var(--r-sm);padding:12px;margin-bottom:8px;box-shadow:var(--shadow-sm)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:20px">${catIcon(t.category)}</span>
+          <input value="${esc(t.merchant)}" oninput="App.octEditTxn(${i},'merchant',this.value)"
+            style="flex:1;font-weight:800;font-size:14px;border:none;background:none;font-family:var(--font);color:var(--text)"/>
+          <button onclick="App.octDeleteTxn(${i})" style="color:var(--text-lt);font-size:18px;background:none;border:none;cursor:pointer">✕</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--text-mid)">
+          <input type="date" value="${t.date}" oninput="App.octEditTxn(${i},'date',this.value)"
+            style="border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-family:var(--font);font-size:12px;color:var(--text)"/>
+          <input value="${t.time}" oninput="App.octEditTxn(${i},'time',this.value)"
+            style="width:56px;border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-family:var(--font);font-size:12px;color:var(--text)"/>
+          <span style="flex:1"></span>
+          <span style="font-size:14px;font-weight:900;color:var(--red)">-$<input type="number" step="0.1" min="0" value="${(+t.amount).toFixed(1)}" oninput="App.octEditTxn(${i},'amount',this.value)"
+            style="width:60px;font-weight:900;font-size:14px;color:var(--red);border:none;background:none;text-align:right;font-family:var(--font)"/></span>
+        </div>
+      </div>`).join('');
+  }
+
+  function octEditTxn(i,field,val){
+    if(!_octTxns[i]) return;
+    _octTxns[i][field] = field==='amount' ? parseFloat(val)||0 : val;
+  }
+
+  function octDeleteTxn(i){
+    _octTxns.splice(i,1);
+    _renderOctResults();
+  }
+
+  async function octSaveAll(){
+    if(!_octTxns.length){ toast('No transactions to save'); return; }
+    let saved=0;
+    for(const t of _octTxns){
+      const r = {
+        id: 'oct_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+        shop_name: t.merchant,
+        date: t.date,
+        time: t.time,
+        total_amount: +t.amount,
+        subtotal_amount: +t.amount,
+        service_charge: 0,
+        discount_total: 0,
+        payment_method: 'Octopus',
+        category: t.category||'Other',
+        items:[{name:t.merchant,qty:1,unit_price:+t.amount,final_price:+t.amount,discounts:[]}],
+        my_amount: +t.amount,
+        split:null, installment:null,
+        source:'octopus_batch',
+      };
+      await DB.put('receipts', r);
+      state.receipts.unshift(r);
+      saved++;
+    }
+    toast(`✅ 已儲存 ${saved} 筆交易`);
+    octReset();
+    navigate('receipts');
+  }
+
+  function octReset(){
+    _octFiles=[]; _octTxns=[];
+    _renderOctThumbs();
+    const results=document.getElementById('oct-results');
+    const prog=document.getElementById('oct-progress');
+    if(results) results.style.display='none';
+    if(prog) prog.style.display='none';
+  }
+
   function showApiKey(thenScan=false){
     _apikeyThenScan = thenScan;
     document.getElementById('apikey-input').value = OCR.getKey();
@@ -4055,6 +4285,7 @@ const App = (() => {
     showTopShops, showCategories, openModal, closeModal,
     selectRvPay, toggleDetPhoto, toggleRvPhoto, showEditCat, selectCat,
     showAddCat, saveCustomCat,
+    octAddFiles, octRemoveFile, octEditTxn, octDeleteTxn, octSaveAll, octReset,
     showApiKey, saveApiKey, exportData, importData, _confirmPaste, reportIssue, copyBugLog,
     init,
   };
