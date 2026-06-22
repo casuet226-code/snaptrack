@@ -822,8 +822,10 @@ img{max-width:100%}
           <button class="pay-opt rv-pay-btn" data-pay="PayMe"      onclick="App.selectRvPay(this)">💜 PayMe</button>
           <button class="pay-opt rv-pay-btn" data-pay="FPS"        onclick="App.selectRvPay(this)">⚡ FPS</button>
         </div>
+        <button onclick="const i=document.getElementById('rv-payment');i.style.display='';i.focus();document.querySelectorAll('.rv-pay-btn').forEach(b=>b.classList.remove('selected'));this.style.display='none';"
+          id="rv-pay-other-btn" style="margin-top:6px;font-size:12px;color:var(--text-lt);background:none;border:none;cursor:pointer;padding:2px 0">＋ Other…</button>
         <input id="rv-payment" class="input" type="text" placeholder="Other / type manually…"
-          style="margin-top:8px;padding:10px 12px;font-size:13px"/>
+          style="margin-top:8px;padding:10px 12px;font-size:13px;display:none"/>
       </div>
       <!-- Category -->
       <div style="margin-top:12px">
@@ -1040,6 +1042,20 @@ img{max-width:100%}
       <button class="chip" id="det-edit-btn" onclick="App.editReceipt()">✏️ Edit</button>
     </div>
     <div id="det-items-list"></div>
+
+    <!-- Add items from photo -->
+    <div id="det-add-items-zone" style="margin-bottom:12px">
+      <button class="btn btn-secondary btn-block" onclick="document.getElementById('det-add-file').click()">
+        📸 Add Items from Photo
+      </button>
+      <input type="file" id="det-add-file" accept="image/*" style="display:none" onchange="App.detAddItemsFromPhoto(this.files[0])"/>
+      <div id="det-add-progress" style="display:none;margin-top:8px;font-size:13px;font-weight:700;color:var(--text-mid);text-align:center">
+        Scanning…
+      </div>
+    </div>
+
+    <!-- Editable added items -->
+    <div id="det-added-items"></div>
 
     <div class="detail-actions">
       <button class="btn btn-secondary btn-block" onclick="App.editReceipt()">✏️ Edit Receipt</button>
@@ -3115,11 +3131,17 @@ const App = (() => {
 
     document.getElementById('raw-text-box').textContent = r.raw_ocr_text||'';
 
-    // Sync payment buttons
+    // Sync payment buttons — show text input only for unknown payment methods
+    const knownPays = new Set(['Cash','Octopus','VISA','MasterCard','AlipayHK','WeChat Pay','EPS','PayMe','FPS']);
+    const isKnown = knownPays.has(r.payment_method||'');
     document.querySelectorAll('.rv-pay-btn').forEach(b=>{
-      const sel = b.dataset.pay === r.payment_method;
-      b.classList.toggle('selected', sel);
+      b.classList.toggle('selected', b.dataset.pay === r.payment_method);
     });
+    const payInp = document.getElementById('rv-payment');
+    payInp.value = r.payment_method||'';
+    payInp.style.display = isKnown ? 'none' : '';
+    const otherBtn = document.getElementById('rv-pay-other-btn');
+    if(otherBtn) otherBtn.style.display = isKnown ? '' : 'none';
 
     renderCatGrid('rv-cat-grid', r.category, _rvCatSelect);
 
@@ -3683,6 +3705,60 @@ const App = (() => {
     chev.textContent  = open ? '⌄' : '›';
   }
 
+  async function detAddItemsFromPhoto(file){
+    if(!file) return;
+    if(!OCR.hasKey()){ showApiKey(false); return; }
+    const r = state.receipts.find(x=>x.id===state.editingId);
+    if(!r) return;
+
+    const prog = document.getElementById('det-add-progress');
+    prog.style.display = '';
+    prog.textContent = 'Scanning…';
+
+    try{
+      const dataUrl = await new Promise((res,rej)=>{
+        const fr = new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(file);
+      });
+      const rawText = await OCR.recognize(dataUrl, null);
+      const parsed = JSON.parse(rawText);
+      // support both receipt type and direct items array
+      const geminiItems = parsed?.items || parsed?.receipt?.items || [];
+      const newItems = geminiItems
+        .filter(it => it.name && (it.lineTotal||it.unitPrice) > 0)
+        .map(it => ({
+          receipt_name: it.name,
+          user_product_name: it.name,
+          qty: it.qty||1,
+          unit_price: parseFloat(it.unitPrice||0),
+          final_price: parseFloat(it.lineTotal||it.unitPrice||0),
+          original_price: parseFloat(it.lineTotal||it.unitPrice||0),
+          discounts: (it.discounts||[]).map(d=>({label:d.label,amount:parseFloat(d.amount||0)})),
+        }));
+
+      if(!newItems.length){ prog.textContent = '⚠ No items found'; setTimeout(()=>prog.style.display='none',2000); return; }
+
+      // Append to receipt
+      r.items = [...(r.items||[]), ...newItems];
+      // Recalculate total
+      const itemsTotal = r.items.reduce((s,it)=>s+(+it.final_price||0),0);
+      if(!r.total_amount || r.total_amount < itemsTotal) r.total_amount = +itemsTotal.toFixed(2);
+      r.my_amount = r.total_amount;
+
+      await DB.put('receipts', r);
+      const idx = state.receipts.findIndex(x=>x.id===r.id);
+      if(idx>=0) state.receipts[idx]=r;
+
+      prog.style.display='none';
+      document.getElementById('det-add-file').value='';
+      toast(`✅ Added ${newItems.length} item${newItems.length>1?'s':''}`);
+      renderDetail(r.id);
+    }catch(e){
+      ErrorLog.add('detAddItems',e.message);
+      prog.textContent = '⚠ Scan failed — try again';
+      setTimeout(()=>prog.style.display='none',3000);
+    }
+  }
+
   function editReceipt(){
     const r=state.receipts.find(x=>x.id===state.editingId);
     if(r){ state.reviewReceipt=r; navigate('review',{receipt:r}); }
@@ -3733,8 +3809,13 @@ const App = (() => {
   function selectRvPay(btn){
     document.querySelectorAll('.rv-pay-btn').forEach(b=>b.classList.remove('selected'));
     btn.classList.add('selected');
-    document.getElementById('rv-payment').value = btn.dataset.pay;
-    if(state.reviewReceipt) state.reviewReceipt.payment_method = btn.dataset.pay;
+    const pay = btn.dataset.pay;
+    const inp = document.getElementById('rv-payment');
+    inp.value = pay;
+    inp.style.display = 'none';
+    const ob = document.getElementById('rv-pay-other-btn');
+    if(ob) ob.style.display = '';
+    if(state.reviewReceipt) state.reviewReceipt.payment_method = pay;
   }
 
   function addManualItem(){
@@ -4165,18 +4246,30 @@ const App = (() => {
     if(results) results.style.display='';
   }
 
+  function _isDupTxn(t){
+    return state.receipts.some(r=>
+      r.date === t.date &&
+      Math.abs((+r.total_amount||0) - (+t.amount||0)) < 0.05 &&
+      (r.shop_name||'').toLowerCase() === (t.merchant||'').toLowerCase()
+    );
+  }
+
   function _renderOctResults(){
     const title = document.getElementById('oct-results-title');
     const list  = document.getElementById('oct-txn-list');
-    if(title) title.textContent = `找到 ${_octTxns.length} 筆交易 — 可以 edit 或刪除`;
+    const dups  = _octTxns.filter(_isDupTxn).length;
+    if(title) title.textContent = `找到 ${_octTxns.length} 筆交易${dups?` · ⚠️ ${dups} 疑似重複`:''}`;
     if(!list) return;
     const catIcon = c => c==='Transportation'?'🚌':c==='Food & Dining'?'🍽️':c==='Shopping'?'🛍️':'📋';
-    list.innerHTML = _octTxns.map((t,i)=>`
-      <div id="oct-txn-${i}" style="background:var(--card);border-radius:var(--r-sm);padding:12px;margin-bottom:8px;box-shadow:var(--shadow-sm)">
+    list.innerHTML = _octTxns.map((t,i)=>{
+      const dup = _isDupTxn(t);
+      return `
+      <div id="oct-txn-${i}" style="background:var(--card);border-radius:var(--r-sm);padding:12px;margin-bottom:8px;box-shadow:var(--shadow-sm);${dup?'border:2px solid var(--yellow);opacity:.85':''}">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <span style="font-size:20px">${catIcon(t.category)}</span>
           <input value="${esc(t.merchant)}" oninput="App.octEditTxn(${i},'merchant',this.value)"
             style="flex:1;font-weight:800;font-size:14px;border:none;background:none;font-family:var(--font);color:var(--text)"/>
+          ${dup?`<span title="可能重複輸入" style="font-size:13px;background:var(--yellow-lt);color:#9a6c00;border-radius:6px;padding:2px 6px;font-weight:700;white-space:nowrap">⚠ 重複?</span>`:''}
           <button onclick="App.octDeleteTxn(${i})" style="color:var(--text-lt);font-size:18px;background:none;border:none;cursor:pointer">✕</button>
         </div>
         <div style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--text-mid)">
@@ -4188,7 +4281,8 @@ const App = (() => {
           <span style="font-size:14px;font-weight:900;color:var(--red)">-$<input type="number" step="0.1" min="0" value="${(+t.amount).toFixed(1)}" oninput="App.octEditTxn(${i},'amount',this.value)"
             style="width:60px;font-weight:900;font-size:14px;color:var(--red);border:none;background:none;text-align:right;font-family:var(--font)"/></span>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
 
   function octEditTxn(i,field,val){
@@ -4280,6 +4374,7 @@ const App = (() => {
     saveReceipt, discardReview, _dupAction,
     calNav, calSelectDay,
     setFilter, setCatFilter, filterByCat, filterReceipts,
+    detAddItemsFromPhoto,
     editReceipt, deleteReceipt, deleteReceiptById,
     selectPay, addManualItem, setManualItem, removeManualItem, saveManual,
     showTopShops, showCategories, openModal, closeModal,
