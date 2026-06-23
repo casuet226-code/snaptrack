@@ -700,6 +700,10 @@ img{max-width:100%}
         <div class="shortcut-icon" style="background:var(--blue-lt)">📈</div>
         <span>Summary</span>
       </button>
+      <button class="shortcut-btn" onclick="App.navigate('cycle')">
+        <div class="shortcut-icon" style="background:var(--purple-lt)">💳</div>
+        <span>Card Cycle</span>
+      </button>
     </div>
 
     <!-- Recent Receipts -->
@@ -730,9 +734,13 @@ img{max-width:100%}
           🖼️ Gallery
         </button>
       </div>
+      <button class="btn btn-secondary" style="width:100%;margin-top:8px" onclick="document.getElementById('file-multi').click()">
+        📚 Multi-Receipt Upload
+      </button>
     </div>
     <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none"/>
     <input type="file" id="file-input-gallery" accept="image/*" style="display:none"/>
+    <input type="file" id="file-multi" accept="image/*" multiple style="display:none" onchange="App.startMultiScan(this.files)"/>
 
     <div id="preview-container" style="margin-top:16px;display:none">
       <img id="preview-img" alt="Receipt preview"/>
@@ -744,10 +752,8 @@ img{max-width:100%}
     <div id="ocr-progress" style="display:none">
       <div style="font-size:14px;font-weight:700" id="ocr-status">Processing image…</div>
       <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill"></div></div>
-      <div class="progress-msg" id="ocr-msg">Preparing…</div>
       <div style="display:flex;gap:10px;margin-top:12px">
         <button class="btn btn-secondary" style="flex:1" id="btn-stop-ocr" onclick="App.stopOCR()">✕ Stop</button>
-        <button class="btn btn-secondary" style="flex:1" onclick="App.resetScan()">📷 Choose Photo</button>
       </div>
     </div>
 
@@ -1137,6 +1143,39 @@ img{max-width:100%}
   </div>
 </div>
 
+<!-- ── BILLING CYCLE SCREEN ──────────────────────────────────────── -->
+<div id="screen-cycle" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="App.back()">←</button>
+    <span class="screen-title">💳 Card Cycle</span>
+    <button class="btn btn-sm btn-secondary" style="margin-left:auto;font-size:12px" onclick="App.showCycleSettings()">⚙ Set Day</button>
+  </div>
+  <div style="padding:0 16px">
+    <!-- Cycle navigator -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;background:var(--card);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow-sm)">
+      <button onclick="App.cycleNav(-1)" style="font-size:22px;background:none;border:none;cursor:pointer;color:var(--text-mid);padding:4px 8px">‹</button>
+      <div style="text-align:center">
+        <div style="font-weight:900;font-size:16px" id="cycle-label">—</div>
+        <div style="font-size:12px;color:var(--text-lt);font-weight:600" id="cycle-sub"></div>
+      </div>
+      <button onclick="App.cycleNav(+1)" style="font-size:22px;background:none;border:none;cursor:pointer;color:var(--text-mid);padding:4px 8px">›</button>
+    </div>
+    <!-- Cycle total -->
+    <div id="cycle-total-card" style="background:var(--purple-lt);border-radius:var(--r);padding:16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.5px">Total This Cycle</div>
+        <div style="font-size:28px;font-weight:900;color:var(--purple)" id="cycle-total">$0.00</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:12px;color:var(--text-mid);font-weight:600" id="cycle-count"></div>
+      </div>
+    </div>
+    <!-- Receipts list -->
+    <div id="cycle-list"></div>
+    <div id="cycle-empty" style="display:none;text-align:center;padding:40px 0;color:var(--text-lt);font-weight:700">No receipts in this cycle</div>
+  </div>
+</div>
+
 <!-- ── SUMMARY SCREEN ────────────────────────────────────────────── -->
 <div id="screen-summary" class="screen">
   <div class="screen-header">
@@ -1251,6 +1290,16 @@ img{max-width:100%}
     </button>
 
     <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px">
+      <p style="font-size:12px;font-weight:700;color:var(--text-lt);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">💳 Card Billing Cycle</p>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <span style="font-size:13px;font-weight:700;color:var(--text-mid);flex:1">截數日 (每月幾號)</span>
+        <input id="billing-day-input" type="number" min="1" max="28" class="input"
+          style="width:70px;text-align:center;padding:8px;font-size:16px;font-weight:900"
+          placeholder="15" oninput="App.saveBillingDay(this.value)"/>
+      </div>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px">
       <p style="font-size:12px;font-weight:700;color:var(--text-lt);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">📦 Data Backup & Transfer</p>
       <button class="btn btn-secondary btn-block" onclick="App.exportData()" style="margin-bottom:8px">
         📋 Copy Data to Clipboard
@@ -1288,11 +1337,26 @@ img{max-width:100%}
   </div>
 </div>
 <div class="modal-overlay" id="modal-categories">
-  <div class="modal-sheet">
+  <div class="modal-sheet" style="max-height:92vh;overflow-y:auto">
     <div class="modal-handle"></div>
-    <h3 style="font-size:18px;font-weight:900;margin-bottom:16px">🏷️ Categories</h3>
+    <div style="display:flex;align-items:center;margin-bottom:16px">
+      <h3 style="font-size:18px;font-weight:900;flex:1;margin:0">🏷️ Categories</h3>
+      <select id="cat-month-sel" style="font-size:13px;border:1px solid var(--border);border-radius:8px;padding:4px 8px;background:var(--card)" onchange="App.showCategories()"></select>
+    </div>
     <div id="categories-list"></div>
     <button class="btn btn-secondary btn-block mt-12" onclick="App.closeModal('modal-categories')">Close</button>
+  </div>
+</div>
+
+<!-- Category drill-down sheet -->
+<div class="modal-overlay" id="modal-cat-detail">
+  <div class="modal-sheet" style="max-height:92vh;overflow-y:auto">
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <button class="back-btn" style="position:relative;top:0;left:0" onclick="App.closeCatDetail()">←</button>
+      <h3 id="cat-detail-title" style="font-size:17px;font-weight:900;margin:0;flex:1"></h3>
+    </div>
+    <div id="cat-detail-list"></div>
   </div>
 </div>
 
@@ -2334,10 +2398,12 @@ const ErrorLog = (() => {
 const OCR = (() => {
   // Fallback chain — tried in order until one succeeds
   const MODELS = [
+    'gemini-2.5-flash',
     'gemini-2.0-flash',
     'gemini-2.0-flash-lite',
     'gemini-2.0-flash-exp',
-    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite-preview-06-17',
+    'gemini-2.5-flash-preview-05-20',
   ];
   const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
@@ -2726,6 +2792,7 @@ const App = (() => {
       case 'add':      initAdd(); break;
       case 'summary':  renderSummary(); break;
       case 'octopus':  octReset(); break;
+      case 'cycle':    renderCycle(); break;
     }
   }
 
@@ -2788,12 +2855,16 @@ const App = (() => {
     const delBtn   = showDel
       ? `<button onclick="App.deleteReceiptById('${r.id}',event)" style="background:none;border:none;padding:8px;color:var(--red);font-size:18px;line-height:1;flex-shrink:0" title="Delete">🗑</button>`
       : `<div class="chevron">›</div>`;
+    const multiCats = receiptItemCats(r);
+    const catIcons = multiCats.length > 1
+      ? multiCats.map(id=>catById(id).icon).join('')
+      : cat.icon;
     return `
     <div class="receipt-row" onclick="App.navigate('detail',{id:'${r.id}'})">
       <div class="shop-logo" style="background:${color}">${initials}</div>
       <div class="receipt-info">
         <div class="receipt-shop">${esc(r.shop_name||'Unknown')}</div>
-        <div class="receipt-meta">${cat.icon} ${fmtDate(r.date)} · ${r.items.length} item${r.items.length!==1?'s':''} <span style="color:var(--text-lt)">${savedStr}</span></div>
+        <div class="receipt-meta">${catIcons} ${fmtDate(r.date)} · ${r.items.length} item${r.items.length!==1?'s':''} <span style="color:var(--text-lt)">${savedStr}</span></div>
       </div>
       <div class="receipt-amt">${fmtMoney(r.total_amount)}</div>
       ${delBtn}
@@ -2860,12 +2931,14 @@ const App = (() => {
     }
 
     _ocrAborted = false;
-    document.getElementById('scan-actions').style.display='block'; // always keep change-photo visible
+    // Clear any leftover error buttons from previous scan
+    document.getElementById('ocr-progress').querySelectorAll('.ocr-err-btn').forEach(b=>b.remove());
+    document.getElementById('scan-actions').style.display='none';
+    document.getElementById('btn-stop-ocr').style.display='';
     document.getElementById('ocr-progress').style.display='block';
 
     const setMsg=(label,pct)=>{
       document.getElementById('ocr-status').textContent = label;
-      document.getElementById('ocr-msg').textContent    = label;
       document.getElementById('progress-fill').style.width = (pct||0)+'%';
     };
 
@@ -3386,12 +3459,47 @@ const App = (() => {
     r.scanned_at = r.scanned_at || new Date().toISOString();
     r.updated_at = new Date().toISOString();
 
+    // Duplicate check at save time (catches edits that result in a match)
+    const dupAtSave = state.receipts.find(x =>
+      x.id !== r.id &&
+      x.date === r.date &&
+      Math.abs((+x.total_amount||0) - (+r.total_amount||0)) < 0.05 &&
+      (x.shop_name||'').toLowerCase() === (r.shop_name||'').toLowerCase()
+    );
+    if(dupAtSave){
+      const itemNames = r.items.map(i=>(i.name||'').toLowerCase().trim()).filter(Boolean);
+      const dupItemNames = dupAtSave.items.map(i=>(i.name||'').toLowerCase().trim()).filter(Boolean);
+      const overlap = itemNames.length && dupItemNames.length
+        ? itemNames.filter(n=>dupItemNames.includes(n)).length / Math.max(itemNames.length, dupItemNames.length)
+        : 0;
+      if(itemNames.length === 0 || overlap > 0.5){
+        showDuplicateDialog(dupAtSave, r, true);
+        return;
+      }
+    }
+
     // Upsert
     const existing=state.receipts.findIndex(x=>x.id===r.id);
     if(existing>=0) state.receipts[existing]=r;
     else state.receipts.push(r);
 
     await DB.put('receipts',r);
+
+    // Multi-receipt queue: auto-advance to next
+    if(_multiQueue.length > 0){
+      _multiIdx++;
+      const remaining = _multiQueue.length - _multiIdx;
+      if(remaining > 0){
+        toast(`✅ Saved! Next receipt (${_multiIdx+1}/${_multiQueue.length})…`);
+        setTimeout(()=> _processNextMulti(), 600);
+      } else {
+        const total = _multiQueue.length;
+        _multiQueue = []; _multiIdx = 0;
+        toast(`✅ All ${total} receipts saved!`);
+        setTimeout(()=> navigate('home'), 800);
+      }
+      return;
+    }
 
     // Show centre overlay briefly
     const overlay = document.getElementById('rv-saved-overlay');
@@ -3409,7 +3517,7 @@ const App = (() => {
     document.getElementById('screen-review').scrollTo({top:99999, behavior:'smooth'});
   }
 
-  function showDuplicateDialog(existing, incoming){
+  function showDuplicateDialog(existing, incoming, fromSave=false){
     // Remove any existing dialog
     const old = document.getElementById('dup-dialog-overlay');
     if(old) old.remove();
@@ -3447,6 +3555,7 @@ const App = (() => {
     // Store pending state for action handler
     state._dupExisting = existing;
     state._dupIncoming = incoming;
+    state._dupFromSave = fromSave;
   }
 
   function _dupAction(action){
@@ -3454,14 +3563,39 @@ const App = (() => {
     if(overlay) overlay.remove();
     const existing = state._dupExisting;
     const incoming = state._dupIncoming;
-    state._dupExisting = null; state._dupIncoming = null;
+    const fromSave  = state._dupFromSave;
+    state._dupExisting = null; state._dupIncoming = null; state._dupFromSave = false;
+
+    if(fromSave){
+      // Triggered at save time — user is already on the review screen
+      if(action === 'cancel'){
+        toast('Not saved — edit or tap Keep Both');
+        return; // stay on review screen
+      }
+      if(action === 'update'){
+        incoming.id = existing.id;
+        incoming.scanned_at = existing.scanned_at;
+      }
+      // For both 'update' and 'keep', force-save the incoming receipt
+      state.reviewReceipt = incoming;
+      const idx = state.receipts.findIndex(x=>x.id===incoming.id);
+      if(idx>=0) state.receipts[idx]=incoming; else state.receipts.push(incoming);
+      DB.put('receipts', incoming);
+      // Show save confirmation
+      const saveBtn = document.getElementById('rv-save-btn');
+      if(saveBtn){ saveBtn.textContent='✅ Saved'; saveBtn.disabled=true; }
+      const bottomActions = document.getElementById('rv-saved-actions-bottom');
+      if(bottomActions) bottomActions.style.display='block';
+      document.getElementById('screen-review').scrollTo({top:99999,behavior:'smooth'});
+      toast(action==='update' ? '✅ Updated existing record' : '✅ Saved as new record');
+      return;
+    }
 
     if(action === 'cancel'){
       toast('Scan discarded');
       return;
     }
     if(action === 'update'){
-      // Replace old record: keep its ID so DB upserts over it
       incoming.id = existing.id;
       incoming.scanned_at = existing.scanned_at;
     }
@@ -3976,34 +4110,161 @@ const App = (() => {
     openModal('modal-shops');
   }
 
-  function showCategories(){
-    const totals={};
-    state.receipts.forEach(r=>{
-      const id = r.category || autoCategory(r.shop_name);
-      totals[id]=(totals[id]||0)+(+r.total_amount||0);
+  /* ── itemCategories: tag each item with a category based on its name ── */
+  function itemCategory(itemName){
+    const s=(itemName||'').toLowerCase();
+    if(/rice|noodle|bread|cake|bun|sushi|dim\s*sum|snack|drink|juice|milk|water|coffee|tea|cola|beer|wine|蛋|飯|麵|包|餅|糕|湯|肉|菜|魚|雞|豬|牛|豆|果|水果|零食|飲/.test(s)) return 'food';
+    if(/shampoo|conditioner|soap|toothpaste|toothbrush|lotion|cream|serum|mask|cleanser|toner|moistur|sunscreen|deodorant|razor|pad|tampon|tissue|cotton|洗頭|洗面|護膚|防曬|面膜|牙膏|沐浴|護髮/.test(s)) return 'personalcare';
+    if(/vitamin|supplement|medicine|pill|tablet|capsule|bandage|mask|醫|藥|維他命|消毒|紗布|膠布/.test(s)) return 'healthcare';
+    if(/pen|notebook|folder|staple|paper|envelope|stamp|文具|原子筆|記事|便利貼/.test(s)) return 'shopping';
+    if(/detergent|bleach|cleaner|mop|broom|sponge|bag|trash|tin foil|wrap|清潔|洗碗|拖把|垃圾|保鮮|錫紙/.test(s)) return 'shopping';
+    return null;
+  }
+
+  function receiptItemCats(r){
+    const cats = new Set();
+    (r.items||[]).forEach(item=>{
+      const c = itemCategory(item.name);
+      if(c) cats.add(c);
     });
+    if(!cats.size) cats.add(r.category || autoCategory(r.shop_name));
+    return [...cats];
+  }
+
+  function _catTotalsForMonth(ym){
+    // ym = 'YYYY-MM' or null = all time
+    const totals={}, prevTotals={};
+    const [y,m] = ym ? ym.split('-').map(Number) : [0,0];
+    const prevYm = ym ? `${m===1?y-1:y}-${String(m===1?12:m-1).padStart(2,'0')}` : null;
+    state.receipts.forEach(r=>{
+      const rym = (r.date||'').slice(0,7);
+      const id = r.category || autoCategory(r.shop_name);
+      const amt = +r.total_amount||0;
+      if(!ym || rym===ym)      { totals[id]=(totals[id]||0)+amt; }
+      if(prevYm && rym===prevYm){ prevTotals[id]=(prevTotals[id]||0)+amt; }
+    });
+    return {totals, prevTotals};
+  }
+
+  function showCategories(){
+    // Build month selector options
+    const months = [...new Set(state.receipts.map(r=>(r.date||'').slice(0,7)).filter(Boolean))].sort().reverse();
+    const sel = document.getElementById('cat-month-sel');
+    if(sel){
+      const cur = sel.value;
+      sel.innerHTML = `<option value="">All time</option>` +
+        months.map(m=>`<option value="${m}" ${m===cur?'selected':''}>${m}</option>`).join('');
+    }
+    const selYm = sel?.value || '';
+
+    const {totals, prevTotals} = _catTotalsForMonth(selYm||null);
     const grand = Object.values(totals).reduce((a,v)=>a+v,0)||1;
+
     document.getElementById('categories-list').innerHTML=
       allCategories().map(c=>{
         const total=totals[c.id]||0;
         if(!total) return '';
+        const prev=prevTotals[c.id]||0;
         const pct=Math.round((total/grand)*100);
+        const diff=prev>0?Math.round(((total-prev)/prev)*100):null;
+        const trendHtml = diff===null ? '' :
+          diff>0 ? `<span style="color:var(--red);font-size:12px;font-weight:700">▲${diff}%</span>` :
+          diff<0 ? `<span style="color:#22c55e;font-size:12px;font-weight:700">▼${Math.abs(diff)}%</span>` :
+                   `<span style="color:var(--text-lt);font-size:12px">→ same</span>`;
+
+        // Mini sparkline: last 6 months bars
+        const barHtml = _miniSparkline(c.id);
+
         return `
-        <div onclick="App.filterByCat('${c.id}')" style="padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer">
+        <div onclick="App.openCatDetail('${c.id}','${selYm}')" style="padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
             <div style="width:40px;height:40px;border-radius:12px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:22px">${c.icon}</div>
             <div style="flex:1">
               <div style="font-weight:700">${c.label}</div>
-              <div style="font-size:11px;color:var(--text-lt);font-weight:600">${pct}% of total</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+                <span style="font-size:11px;color:var(--text-lt);font-weight:600">${pct}% of total</span>
+                ${trendHtml}
+              </div>
             </div>
-            <div style="font-size:16px;font-weight:900">${fmtMoney(total)}</div>
+            <div style="text-align:right">
+              <div style="font-size:16px;font-weight:900">${fmtMoney(total)}</div>
+              ${prev>0?`<div style="font-size:11px;color:var(--text-lt)">prev ${fmtMoney(prev)}</div>`:''}
+            </div>
           </div>
-          <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-left:52px">
+          <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-left:52px;margin-bottom:6px">
             <div style="height:100%;background:var(--red);border-radius:3px;width:${pct}%"></div>
           </div>
+          ${barHtml}
         </div>`;
       }).join('')||'<p style="text-align:center;color:var(--text-lt);padding:16px">No data yet</p>';
     openModal('modal-categories');
+  }
+
+  function _miniSparkline(catId){
+    // Last 6 months totals as tiny bar chart
+    const now=new Date();
+    const bars=[];
+    for(let i=5;i>=0;i--){
+      const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+      const ym=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const total=state.receipts.filter(r=>(r.date||'').slice(0,7)===ym&&(r.category||autoCategory(r.shop_name))===catId)
+        .reduce((s,r)=>s+(+r.total_amount||0),0);
+      bars.push({ym,total,label:String(d.getMonth()+1)+'月'});
+    }
+    const maxV=Math.max(...bars.map(b=>b.total),1);
+    if(bars.every(b=>b.total===0)) return '';
+    const barsHtml=bars.map(b=>{
+      const h=Math.round((b.total/maxV)*28);
+      const isNow=b===bars[bars.length-1];
+      return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1">
+        <div style="width:100%;max-width:20px;height:${h}px;min-height:${b.total?2:0}px;background:${isNow?'var(--red)':'var(--border)'};border-radius:3px 3px 0 0;align-self:flex-end"></div>
+        <div style="font-size:9px;color:var(--text-lt)">${b.label}</div>
+      </div>`;
+    }).join('');
+    return `<div style="display:flex;align-items:flex-end;gap:3px;height:42px;margin-left:52px;margin-top:4px">${barsHtml}</div>`;
+  }
+
+  function openCatDetail(catId, ym){
+    closeModal('modal-categories');
+    const c = catById(catId);
+    document.getElementById('cat-detail-title').textContent = `${c.icon} ${c.label}`;
+    let recs = state.receipts.filter(r=>(r.category||autoCategory(r.shop_name))===catId);
+    if(ym) recs = recs.filter(r=>(r.date||'').startsWith(ym));
+    recs.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+
+    document.getElementById('cat-detail-list').innerHTML = recs.length ? recs.map(r=>{
+      // Collect items belonging to this category
+      const catItems = (r.items||[]).filter(item=>{
+        const ic = itemCategory(item.name);
+        return !ic || ic===catId;
+      });
+      const itemsHtml = catItems.length ?
+        `<div style="margin-top:6px;padding:6px 8px;background:var(--bg);border-radius:8px">` +
+        catItems.map(item=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;border-bottom:1px solid var(--border)">
+          <span style="color:var(--text)">${item.name||'Item'}</span>
+          <span style="color:var(--text-lt);font-weight:600">${fmtMoney(item.lineTotal||item.unitPrice||0)}</span>
+        </div>`).join('') +
+        `</div>` : '';
+
+      const multiIcons = receiptItemCats(r).map(id=>catById(id).icon).join(' ');
+      return `<div style="padding:10px 0;border-bottom:1px solid var(--border)" onclick="App.editReceipt('${r.id}')">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:14px">${r.shop_name||'Unknown'}</div>
+            <div style="font-size:12px;color:var(--text-lt)">${r.date||''} · ${multiIcons}</div>
+          </div>
+          <div style="font-weight:900;font-size:15px">${fmtMoney(r.total_amount)}</div>
+        </div>
+        ${itemsHtml}
+      </div>`;
+    }).join('') : '<p style="text-align:center;color:var(--text-lt);padding:20px">No receipts</p>';
+
+    openModal('modal-cat-detail');
+  }
+
+  function closeCatDetail(){
+    closeModal('modal-cat-detail');
+    showCategories();
   }
 
   function filterByCat(catId){
@@ -4025,7 +4286,9 @@ const App = (() => {
   let _apikeyThenScan = false;
   async function exportData(){
     const receipts = await DB.all('receipts');
-    const text = JSON.stringify({ version:1, exported: new Date().toISOString(), receipts });
+    const customCats = CustomCats.all();
+    const billingDay = getBillingDay();
+    const text = JSON.stringify({ version:2, exported: new Date().toISOString(), receipts, customCats, billingDay });
     try {
       await navigator.clipboard.writeText(text);
       toast(`Copied ${receipts.length} receipts to clipboard ✅`);
@@ -4052,6 +4315,15 @@ const App = (() => {
       const data = JSON.parse(text);
       const rows = data.receipts || (Array.isArray(data) ? data : null);
       if(!rows) throw new Error('No receipt data found in clipboard');
+      // Restore custom categories
+      if(Array.isArray(data.customCats) && data.customCats.length){
+        const existing = CustomCats.all();
+        const existingIds = new Set(existing.map(c=>c.id));
+        const merged = [...existing, ...data.customCats.filter(c=>!existingIds.has(c.id))];
+        localStorage.setItem(CustomCats._key, JSON.stringify(merged));
+      }
+      // Restore billing day
+      if(data.billingDay) localStorage.setItem('billing_day', data.billingDay);
       let added = 0, skipped = 0;
       for(const r of rows){
         if(!r.id) r.id = uid();
@@ -4097,6 +4369,13 @@ const App = (() => {
       const data = JSON.parse(text);
       const rows = data.receipts || (Array.isArray(data) ? data : null);
       if(!rows) throw new Error('Invalid data');
+      if(Array.isArray(data.customCats) && data.customCats.length){
+        const existing = CustomCats.all();
+        const existingIds = new Set(existing.map(c=>c.id));
+        const merged = [...existing, ...data.customCats.filter(c=>!existingIds.has(c.id))];
+        localStorage.setItem(CustomCats._key, JSON.stringify(merged));
+      }
+      if(data.billingDay) localStorage.setItem('billing_day', data.billingDay);
       let added = 0, skipped = 0;
       for(const r of rows){
         if(!r.id) r.id = uid();
@@ -4175,6 +4454,36 @@ const App = (() => {
       document.body.appendChild(div);
     }
   }
+
+  /* ══════════════════════════════════════════════════════════════
+     MULTI-RECEIPT SCAN QUEUE
+  ══════════════════════════════════════════════════════════════ */
+  let _multiQueue = [];
+  let _multiIdx   = 0;
+
+  async function startMultiScan(files){
+    if(!files?.length) return;
+    _multiQueue = Array.from(files);
+    _multiIdx   = 0;
+    await _processNextMulti();
+  }
+
+  async function _processNextMulti(){
+    if(_multiIdx >= _multiQueue.length){ _multiQueue=[]; _multiIdx=0; navigate('home'); return; }
+    const file = _multiQueue[_multiIdx];
+    state.scanFile = file;
+    navigate('scan');
+    document.getElementById('upload-zone').style.display='none';
+    const prevImg  = document.getElementById('preview-img');
+    const prevCont = document.getElementById('preview-container');
+    prevImg.src = URL.createObjectURL(file);
+    prevCont.style.display='block';
+    document.getElementById('preview-label').textContent=`Receipt ${_multiIdx+1} of ${_multiQueue.length}`;
+    await startOCR();
+  }
+
+  function multiNext(){ _multiIdx++; _processNextMulti(); }
+  function multiSkip(){ _multiIdx++; _processNextMulti(); }
 
   /* ══════════════════════════════════════════════════════════════
      OCTOPUS BATCH IMPORT
@@ -4333,9 +4642,92 @@ const App = (() => {
     if(prog) prog.style.display='none';
   }
 
+  /* ══════════════════════════════════════════════════════════════
+     BILLING CYCLE
+  ══════════════════════════════════════════════════════════════ */
+  let _cycleOffset = 0; // 0 = current cycle, -1 = previous, etc.
+
+  function getBillingDay(){ return parseInt(localStorage.getItem('billing_day')||'15')||15; }
+
+  function saveBillingDay(val){
+    const d = Math.max(1, Math.min(28, parseInt(val)||15));
+    localStorage.setItem('billing_day', d);
+  }
+
+  function showCycleSettings(){
+    document.getElementById('billing-day-input').value = getBillingDay();
+    openModal('modal-apikey');
+  }
+
+  function _getCycleRange(offset){
+    const day = getBillingDay();
+    const now = new Date();
+    // determine current cycle start
+    const curStart = new Date(now.getFullYear(), now.getMonth(), day);
+    if(now.getDate() < day) curStart.setMonth(curStart.getMonth() - 1);
+    // apply offset
+    const start = new Date(curStart);
+    start.setMonth(start.getMonth() + offset);
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + 1);
+    end.setDate(end.getDate() - 1);
+    return { start, end };
+  }
+
+  function renderCycle(){
+    const day = getBillingDay();
+    const { start, end } = _getCycleRange(_cycleOffset);
+
+    const fmt = d => d.toLocaleDateString('en-HK',{day:'numeric',month:'short',year:'numeric'});
+    const fmtShort = d => d.toLocaleDateString('en-HK',{day:'numeric',month:'short'});
+
+    document.getElementById('cycle-label').textContent = `${fmtShort(start)} – ${fmtShort(end)}`;
+    document.getElementById('cycle-sub').textContent = _cycleOffset === 0 ? 'Current cycle' :
+      _cycleOffset === -1 ? 'Previous cycle' : fmt(start) + ' – ' + fmt(end);
+
+    const startStr = start.toISOString().slice(0,10);
+    const endStr   = end.toISOString().slice(0,10);
+
+    const receipts = state.receipts.filter(r => r.date >= startStr && r.date <= endStr)
+      .sort((a,b) => (b.date+b.time||'').localeCompare(a.date+a.time||''));
+
+    const total = receipts.reduce((s,r) => s + (+r.my_amount||+r.total_amount||0), 0);
+    document.getElementById('cycle-total').textContent = fmtMoney(total);
+    document.getElementById('cycle-count').textContent = `${receipts.length} receipts`;
+
+    const list = document.getElementById('cycle-list');
+    const empty = document.getElementById('cycle-empty');
+    if(!receipts.length){ list.innerHTML=''; empty.style.display=''; return; }
+    empty.style.display='none';
+
+    // Group by date
+    const byDate = {};
+    receipts.forEach(r=>{ (byDate[r.date]||(byDate[r.date]=[])).push(r); });
+
+    list.innerHTML = Object.entries(byDate).sort((a,b)=>b[0].localeCompare(a[0])).map(([date,rs])=>`
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:800;color:var(--text-lt);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;padding:0 4px">${fmtDate(date)}</div>
+        ${rs.map(r=>`
+        <div class="receipt-row" onclick="App.navigate('detail',{id:'${r.id}'})" style="margin-bottom:6px">
+          <div class="rr-icon">${(catById(r.category||autoCategory(r.shop_name))).icon}</div>
+          <div class="rr-info">
+            <div class="rr-shop">${esc(r.shop_name||'Unknown')}</div>
+            <div class="rr-meta">${r.payment_method||''}</div>
+          </div>
+          <div class="rr-amount" style="color:var(--purple)">${fmtMoney(r.my_amount||r.total_amount)}</div>
+        </div>`).join('')}
+      </div>`).join('');
+  }
+
+  function cycleNav(delta){
+    _cycleOffset += delta;
+    renderCycle();
+  }
+
   function showApiKey(thenScan=false){
     _apikeyThenScan = thenScan;
     document.getElementById('apikey-input').value = OCR.getKey();
+    document.getElementById('billing-day-input').value = getBillingDay();
     openModal('modal-apikey');
   }
 
@@ -4367,7 +4759,7 @@ const App = (() => {
 
   return {
     navigate, back,
-    startOCR, resetScan, stopOCR,
+    startOCR, resetScan, stopOCR, startMultiScan, multiNext, multiSkip,
     updateItemName, updateItemPrice, saveItemMapping, changeQty, deleteItem, addBlankItem, toggleRaw,
     toggleSplit, changeSplitPeople, updateSplit,
     toggleInstallment, updateInstallment,
@@ -4377,10 +4769,11 @@ const App = (() => {
     detAddItemsFromPhoto,
     editReceipt, deleteReceipt, deleteReceiptById,
     selectPay, addManualItem, setManualItem, removeManualItem, saveManual,
-    showTopShops, showCategories, openModal, closeModal,
+    showTopShops, showCategories, openCatDetail, closeCatDetail, openModal, closeModal,
     selectRvPay, toggleDetPhoto, toggleRvPhoto, showEditCat, selectCat,
     showAddCat, saveCustomCat,
     octAddFiles, octRemoveFile, octEditTxn, octDeleteTxn, octSaveAll, octReset,
+    showCycleSettings, saveBillingDay, cycleNav,
     showApiKey, saveApiKey, exportData, importData, _confirmPaste, reportIssue, copyBugLog,
     init,
   };
