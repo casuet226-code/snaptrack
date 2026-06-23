@@ -66,7 +66,7 @@ img{max-width:100%}
 .screen{
   display:none;
   min-height:calc(100dvh - var(--nav-h));
-  padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
+  padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 40px);
   overflow-y:auto;
   -webkit-overflow-scrolling:touch;
 }
@@ -1394,7 +1394,7 @@ function autoCategory(shopName){
   if(/netflix|spotify|apple|google\s*play|youtube|amazon|disney|hbo|chatgpt|openai|subscription/.test(s)) return 'subscriptions';
   if(/cinema|amc|broadway|broadway\s*circuit|golden\s*harvest|imax|game|steam|playstation|nintendo|sport|fitness|gym|swimming/.test(s)) return 'entertainment';
   if(/clinic|hospital|doctor|dental|optician|pharmacy|mannings|watsons|watson|guardian|health/.test(s)) return 'healthcare';
-  if(/salon|spa|beauty|hair|nail|barber|cosmetic|sasa|bonjour/.test(s)) return 'personalcare';
+  if(/salon|spa|beauty|hair|nail|barber|cosmetic|sasa|bonjour|sephora|l'occitane|loccitane|kiehls|kiehl|innisfree|the\s*body\s*shop|origins|clinique|lancome|sk-ii|skii|fancl|lush/.test(s)) return 'personalcare';
   if(/parknshop|park n shop|wellcome|惠康|百佳|jason|great|jasons|city\s*super|citysuper|aeon|donki|don\s*don|ikea|sogo|cooked\s*deli|supermarket/.test(s)) return 'shopping';
   if(/7-eleven|711|circle\s*k|vango|ok\s*convenience|mcdonald|kfc|starbucks|café|cafe|restaurant|茶餐廳|cha\s*chaan|bistro|bakery|pret|subway|pizza|sushi|dim\s*sum|hotpot|uny|wellcome\s*fresh/.test(s)) return 'food';
   if(/rent|utility|utilities|electricity|gas|water|rate|broadband|wifi|csl|smartone|hkt|three\s*hk|1010/.test(s)) return 'housing';
@@ -1885,7 +1885,7 @@ function classifyItemLine(name, price){
     return LINE_CLASS.TRANSACTION_INFO;
 
   // MEMBERSHIP / loyalty
-  if(/\b(?:Member(?:ship)?\s*(?:No|ID|Card|#)|Points?\s*(?:Earned|Balance|Used|Redeemed)|Stamp(?:s)?\s*(?:Earned|Balance)|e-Dollar|Reward\s*Points?|HKTVmall\s*Dollar|Cashback)\b/i.test(n))
+  if(/\b(?:Member(?:ship)?\s*(?:No|ID|Card|#)|Points?\s*(?:Earned|Balance|Used|Redeemed)|Stamp(?:s)?\s*(?:Earned|Balance)|e-Dollar|Reward\s*Points?|HKTVmall\s*Dollar|Cashback|Beauty\s*Pass|BEAUTY\s*PASS|eVoucher|e-Voucher|Sephora\s*Points?)\b/i.test(n))
     return LINE_CLASS.MEMBERSHIP;
 
   // DISCOUNT keywords (positive price, but the line is a promo/saving)
@@ -2487,6 +2487,13 @@ B) 1-LINE ITEM FORMAT (McDonald's, Café de Coral, small shops):
 C) 2-LINE ITEM FORMAT (Watsons, Mannings, Sasa):
    Line 1: Product name
    Line 2: qty × unit price = line total (e.g.  1 × 39.90  =  39.90)
+
+D) SEPHORA FORMAT:
+   Line 1: Brand + product name (English/French, e.g. "LANEIGE Water Sleeping Mask EX 70ml")
+   Line 2: SKU/barcode (13-digit number like "3614272429451") — IGNORE this line entirely, NOT the item name
+   Line 3: Qty and price (e.g. "1      XXX.00")
+   → Ignore "BEAUTY PASS" points lines, "Member Saving", "eVoucher" discount lines (they are discounts, not products)
+   → Category = "Personal Care"
 
 ═══ E-PAYMENT SCREENSHOTS (PayMe / AlipayHK / WeChat Pay / Octopus / FPS / Bank) ═══
 
@@ -4471,14 +4478,18 @@ const App = (() => {
   async function _processNextMulti(){
     if(_multiIdx >= _multiQueue.length){ _multiQueue=[]; _multiIdx=0; navigate('home'); return; }
     const file = _multiQueue[_multiIdx];
-    state.scanFile = file;
+    // navigate first (resetScan runs inside), then set scanFile + preview AFTER
     navigate('scan');
+    state.scanFile = file;
     document.getElementById('upload-zone').style.display='none';
     const prevImg  = document.getElementById('preview-img');
     const prevCont = document.getElementById('preview-container');
     prevImg.src = URL.createObjectURL(file);
     prevCont.style.display='block';
     document.getElementById('preview-label').textContent=`Receipt ${_multiIdx+1} of ${_multiQueue.length}`;
+    // reset the multi file input so the same selection can re-trigger onchange next time
+    const fm = document.getElementById('file-multi');
+    if(fm) fm.value='';
     await startOCR();
   }
 
