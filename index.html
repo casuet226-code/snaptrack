@@ -822,6 +822,8 @@ img{max-width:100%}
           <button class="pay-opt rv-pay-btn" data-pay="Octopus"    onclick="App.selectRvPay(this)">🟡 Octopus</button>
           <button class="pay-opt rv-pay-btn" data-pay="VISA"       onclick="App.selectRvPay(this)">💳 VISA</button>
           <button class="pay-opt rv-pay-btn" data-pay="MasterCard" onclick="App.selectRvPay(this)">💳 Master</button>
+          <button class="pay-opt rv-pay-btn" data-pay="Monzo"      onclick="App.selectRvPay(this)">🔴 Monzo</button>
+          <button class="pay-opt rv-pay-btn" data-pay="Mox"        onclick="App.selectRvPay(this)">⚫ Mox</button>
           <button class="pay-opt rv-pay-btn" data-pay="AlipayHK"   onclick="App.selectRvPay(this)">📱 Alipay</button>
           <button class="pay-opt rv-pay-btn" data-pay="WeChat Pay" onclick="App.selectRvPay(this)">💚 WeChat</button>
           <button class="pay-opt rv-pay-btn" data-pay="EPS"        onclick="App.selectRvPay(this)">🏧 EPS</button>
@@ -878,6 +880,12 @@ img{max-width:100%}
         <label class="input-label">Amount Paid</label>
         <input class="input" id="rv-paid" type="number" step="0.1" placeholder="0.00"/>
       </div>
+    </div>
+
+    <!-- Foreign currency badge (Monzo / multi-currency) -->
+    <div id="rv-fx-badge" style="display:none;background:#f0f4ff;border:1px solid #c7d7ff;border-radius:12px;padding:10px 14px;margin-bottom:16px;font-size:13px">
+      <div style="font-weight:800;margin-bottom:4px">💱 Foreign Currency Transaction</div>
+      <div id="rv-fx-detail" style="color:#3b5bdb;line-height:1.6"></div>
     </div>
 
     <!-- ── Split Bill ─────────────────────────────────────────── -->
@@ -1028,6 +1036,12 @@ img{max-width:100%}
         <div class="detail-total-lbl" id="det-date"></div>
         <div style="font-size:13px;font-weight:700;color:var(--text-mid)" id="det-payment"></div>
       </div>
+    </div>
+
+    <!-- Foreign currency badge -->
+    <div id="det-fx-badge" style="display:none;background:#f0f4ff;border:1px solid #c7d7ff;border-radius:12px;padding:10px 14px;margin-bottom:16px;font-size:13px">
+      <div style="font-weight:800;margin-bottom:4px">💱 Foreign Currency</div>
+      <div id="det-fx-detail" style="color:#3b5bdb;line-height:1.6"></div>
     </div>
 
     <!-- Receipt photo (shown only if saved) -->
@@ -1394,6 +1408,7 @@ function autoCategory(shopName){
   if(/netflix|spotify|apple|google\s*play|youtube|amazon|disney|hbo|chatgpt|openai|subscription/.test(s)) return 'subscriptions';
   if(/cinema|amc|broadway|broadway\s*circuit|golden\s*harvest|imax|game|steam|playstation|nintendo|sport|fitness|gym|swimming/.test(s)) return 'entertainment';
   if(/clinic|hospital|doctor|dental|optician|pharmacy|mannings|watsons|watson|guardian|health/.test(s)) return 'healthcare';
+  if(/monzo/.test(s)) return 'shopping';
   if(/salon|spa|beauty|hair|nail|barber|cosmetic|sasa|bonjour|sephora|l'occitane|loccitane|kiehls|kiehl|innisfree|the\s*body\s*shop|origins|clinique|lancome|sk-ii|skii|fancl|lush/.test(s)) return 'personalcare';
   if(/parknshop|park n shop|wellcome|惠康|百佳|jason|great|jasons|city\s*super|citysuper|aeon|donki|don\s*don|ikea|sogo|cooked\s*deli|supermarket/.test(s)) return 'shopping';
   if(/7-eleven|711|circle\s*k|vango|ok\s*convenience|mcdonald|kfc|starbucks|café|cafe|restaurant|茶餐廳|cha\s*chaan|bistro|bakery|pret|subway|pizza|sushi|dim\s*sum|hotpot|uny|wellcome\s*fresh/.test(s)) return 'food';
@@ -1422,6 +1437,7 @@ function catById(id){ return allCategories().find(c=>c.id===id) || CATEGORIES[CA
 /* ── Utilities ──────────────────────────────────────────────────── */
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7) }
 function fmtMoney(n){ return '$' + (+n||0).toFixed(2) }
+function _currencySymbol(c){ return {USD:'$',GBP:'£',EUR:'€',JPY:'¥',CNY:'¥',AUD:'A$',CAD:'C$',SGD:'S$',CHF:'Fr',KRW:'₩',THB:'฿',HKD:'$'}[c] || (c+' '); }
 function fmtDate(iso){
   if(!iso) return '';
   const d = new Date(iso+'T00:00:00');
@@ -1978,12 +1994,19 @@ function normalizeReceiptData(raw){
 
   const category = _normalizeCategory(raw.mainCategory || raw.category || '');
 
+  // Foreign currency (Monzo / multi-currency)
+  const foreignCurrency = (raw.foreign_currency || raw.foreignCurrency || '').toUpperCase();
+  const foreignAmount   = parseFloat(raw.foreign_amount || raw.foreignAmount || 0) || 0;
+  const exchangeRate    = parseFloat(raw.exchange_rate  || raw.exchangeRate  || 0) || 0;
+  const exchangeRateDesc = raw.exchange_rate_desc || raw.exchangeRateDesc || '';
+
   return {
     merchant, branch, date, time, currency,
     total, subtotal, serviceCharge, paymentMethod, cardLast4,
     items: rawItems.map(_normalizeItem),
     discounts: rawDiscs.map(_normalizeDiscount).filter(d => d.amount >= 0),
     mainCategory: category,
+    foreignCurrency, foreignAmount, exchangeRate, exchangeRateDesc,
     _raw: raw,
   };
 }
@@ -2058,6 +2081,8 @@ function _normalizePaymentMethod(s){
   if(/WECHAT|微信/.test(u))       return 'WeChat Pay';
   if(/PAYME/.test(u))             return 'PayMe';
   if(/FPS|轉數快/.test(u))        return 'FPS';
+  if(/MONZO/.test(u))             return 'Monzo';
+  if(/^MOX/.test(u))              return 'Mox';
   if(/CASH|現金/.test(u))         return 'Cash';
   if(/APPLEPAY/.test(u))          return 'Apple Pay';
   return s.trim();
@@ -2194,6 +2219,11 @@ function geminiToReceipt(g){
     raw_ocr_text:   JSON.stringify(g._raw || g, null, 2),
     items,
     category:       g.mainCategory || 'other',
+    // Foreign currency (Monzo / multi-currency cards)
+    foreign_currency:   g.foreignCurrency || '',
+    foreign_amount:     g.foreignAmount   || 0,
+    exchange_rate:      g.exchangeRate     || 0,
+    exchange_rate_desc: g.exchangeRateDesc || '',
   };
 
   console.log('[SnapTrack] geminiToReceipt — final receipt:', {
@@ -2495,6 +2525,35 @@ D) SEPHORA FORMAT:
    → Ignore "BEAUTY PASS" points lines, "Member Saving", "eVoucher" discount lines (they are discounts, not products)
    → Category = "Personal Care"
 
+═══ FOREIGN CURRENCY / MONZO SCREENSHOTS ═══
+
+If the image is a Monzo app transaction screenshot (or any foreign-currency bank showing two currencies):
+
+DETECTION — Monzo screenshots show:
+- Monzo logo (hot coral/pink), "monzo" wordmark
+- A large amount in the MERCHANT'S currency (e.g. "$45.00" for a US store)
+- A smaller line showing what was charged to the card in GBP (e.g. "£36.25" or "Paid in GBP £36.25")
+- Exchange rate line (e.g. "Exchange rate: £1 = $1.24" or "1 GBP = 1.24 USD")
+
+For Monzo / multi-currency receipts, add these extra fields to the TYPE B JSON:
+{
+  ...all normal receipt fields...,
+  "currency": "GBP",
+  "total": <GBP amount charged to card, e.g. 36.25>,
+  "foreign_currency": "USD",
+  "foreign_amount": <amount in merchant currency, e.g. 45.00>,
+  "exchange_rate": <rate as a number, e.g. 1.24>,
+  "exchange_rate_desc": "£1 = $1.24 USD"
+}
+
+Rules:
+- total = the GBP amount Monzo actually charged (what shows in the card's currency)
+- foreign_amount = the USD/EUR/other amount the merchant charged
+- exchange_rate = GBP per 1 foreign unit, OR foreign per 1 GBP — whichever Monzo shows
+- If no exchange rate visible, omit exchange_rate and exchange_rate_desc
+- paymentMethod = "Monzo"
+- mainCategory = infer from merchant name as usual
+
 ═══ E-PAYMENT SCREENSHOTS (PayMe / AlipayHK / WeChat Pay / Octopus / FPS / Bank) ═══
 
 If the image is a digital payment app screenshot (not a paper receipt), follow these rules:
@@ -2537,7 +2596,15 @@ FIELD MAPPING for e-payment screenshots:
 - mainCategory: infer from the merchant (e.g. McDonald's→Food & Dining, 7-Eleven→Shopping, person's name→Other)
 
 COMMON E-PAYMENT LAYOUTS:
-PayMe: Shows "HK$XX.XX" prominently, merchant name below, date/time, transaction ref
+PayMe (HSBC PayMe):
+  - Shows "HK$XX.XX" or "已付款 HK$XX.XX" or "Payment Sent HK$XX.XX" prominently at top
+  - Recipient name (收款方 / To) below the amount — use this as merchant
+  - Shows date/time and a transaction reference number (ignore the ref number)
+  - Sometimes shows a memo/note — put it in items[0].name if it describes what was paid for
+  - If no memo, use the recipient name as items[0].name
+  - paymentMethod = "PayMe"
+  - For PayMe transfers to a person's name (e.g. "陳大文") → mainCategory = "Other"
+  - For PayMe to a shop/merchant → infer category from merchant name
 AlipayHK / Taobao: Shows "港幣 XX.XX" or "HKD XX.XX", merchant, date/time. May show payment breakdown:
   - "錢包結餘 -港幣 XX.XX" = amount paid from wallet (ignore this line)
   - "折扣優惠券 -港幣 XX.XX" = DISCOUNT — put this in the item's discounts array
@@ -3211,8 +3278,24 @@ const App = (() => {
 
     document.getElementById('raw-text-box').textContent = r.raw_ocr_text||'';
 
+    // Foreign currency badge
+    const fxBadge = document.getElementById('rv-fx-badge');
+    const fxDetail = document.getElementById('rv-fx-detail');
+    if(fxBadge && r.foreign_currency && r.foreign_amount){
+      const sym = _currencySymbol(r.foreign_currency);
+      const chargedSym = _currencySymbol(r.currency||'GBP');
+      let html = `Merchant charged: <strong>${sym}${(+r.foreign_amount).toFixed(2)} ${r.foreign_currency}</strong><br>`;
+      html += `Card charged: <strong>${chargedSym}${(+r.total_amount).toFixed(2)} ${r.currency||'GBP'}</strong><br>`;
+      if(r.exchange_rate_desc) html += `Rate: ${r.exchange_rate_desc}`;
+      else if(r.exchange_rate) html += `Rate: 1 ${r.currency||'GBP'} = ${r.exchange_rate} ${r.foreign_currency}`;
+      fxDetail.innerHTML = html;
+      fxBadge.style.display = '';
+    } else if(fxBadge){
+      fxBadge.style.display = 'none';
+    }
+
     // Sync payment buttons — show text input only for unknown payment methods
-    const knownPays = new Set(['Cash','Octopus','VISA','MasterCard','AlipayHK','WeChat Pay','EPS','PayMe','FPS']);
+    const knownPays = new Set(['Cash','Octopus','VISA','MasterCard','Monzo','Mox','AlipayHK','WeChat Pay','EPS','PayMe','FPS']);
     const isKnown = knownPays.has(r.payment_method||'');
     document.querySelectorAll('.rv-pay-btn').forEach(b=>{
       b.classList.toggle('selected', b.dataset.pay === r.payment_method);
@@ -3768,6 +3851,24 @@ const App = (() => {
     document.getElementById('det-payment').textContent=
       [r.payment_method,r.card_last4?`···${r.card_last4}`:''].filter(Boolean).join(' ');
 
+    // Foreign currency badge
+    const detFx = document.getElementById('det-fx-badge');
+    const detFxDetail = document.getElementById('det-fx-detail');
+    if(detFx && r.foreign_currency && r.foreign_amount){
+      const sym = _currencySymbol(r.foreign_currency);
+      const chargedSym = _currencySymbol(r.currency||'GBP');
+      let html = `Merchant charged: <strong>${sym}${(+r.foreign_amount).toFixed(2)} ${r.foreign_currency}</strong><br>`;
+      html += `Card charged: <strong>${chargedSym}${(+r.total_amount).toFixed(2)} ${r.currency||'GBP'}</strong><br>`;
+      if(r.exchange_rate_desc) html += `Rate: ${r.exchange_rate_desc}`;
+      else if(r.exchange_rate) html += `Rate: 1 ${r.currency||'GBP'} = ${r.exchange_rate} ${r.foreign_currency}`;
+      detFxDetail.innerHTML = html;
+      detFx.style.display = '';
+      // Show the GBP label on the total
+      document.getElementById('det-total').textContent = `${chargedSym}${(+r.total_amount).toFixed(2)} ${r.currency||'GBP'}`;
+    } else if(detFx){
+      detFx.style.display = 'none';
+    }
+
     const cat = catById(r.category || autoCategory(r.shop_name));
     const chips=[
       `<span onclick="App.showEditCat()" style="cursor:pointer" title="Tap to change">${cat.icon} ${cat.label} ✎</span>`,
@@ -4254,7 +4355,7 @@ const App = (() => {
         `</div>` : '';
 
       const multiIcons = receiptItemCats(r).map(id=>catById(id).icon).join(' ');
-      return `<div style="padding:10px 0;border-bottom:1px solid var(--border)" onclick="App.editReceipt('${r.id}')">
+      return `<div style="padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="App.closeModal('modal-cat-detail');App.navigate('detail',{id:'${r.id}'})">
         <div style="display:flex;align-items:center;gap:8px">
           <div style="flex:1">
             <div style="font-weight:700;font-size:14px">${r.shop_name||'Unknown'}</div>
